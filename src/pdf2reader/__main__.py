@@ -1,5 +1,5 @@
 import tkinter as tk
-from src.pdf2reader.main_gui import MainGUI
+from src.pdf2reader.gui.main_gui import MainGUI
 
 def main():
     root_window = tk.Tk()

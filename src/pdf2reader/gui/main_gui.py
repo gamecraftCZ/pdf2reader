@@ -3,8 +3,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
 
-from src.pdf2reader.navigation_bar import NavigationBar
-from src.pdf2reader.pdf_display import PdfDisplay
+from src.pdf2reader.gui.navigation_bar import NavigationBar
+from src.pdf2reader.gui.pdf_display import PdfDisplay
 from src.pdf2reader.pdf_file import PdfFile
 
 logger = logging.getLogger(__name__)
