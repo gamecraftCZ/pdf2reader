@@ -11,8 +11,8 @@ def main():
     # root_window.overrideredirect(True)
     # root_window.attributes("-alpha", 0.01)
 
-    app = MainGUI(root_window, borderwidth=10, relief=tk.GROOVE)
-    app.pack()
+    app = MainGUI(root_window, borderwidth=3)
+    app.pack(fill=tk.BOTH, expand=True)
     root_window.mainloop()
 
 
