@@ -1,0 +1,39 @@
+[project]
+name = "pdf2reader"
+version = "0.0.1"
+authors = [
+  { name="Patrik Vácal", email="patrik+pdf2reader@vacal.dev" },
+]
+#description = "A small example package"
+#readme = "README.md"
+#requires-python = ">=3.7"
+#classifiers = [
+#    "Programming Language :: Python :: 3",
+#    "License :: OSI Approved :: MIT License",
+#    "Operating System :: OS Independent",
+#]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+#include = ["pikepdf", "pikepdf.*"]
+#namespaces = false
+
+[tool.poetry.scripts]
+pdf2reader = "pdf2reader.__main__:main"
+
+#[tool.poetry]
+#include = [
+#    { path = "tests", format = "sdist" },
+#    { path = "for_wheel.txt", format = ["sdist", "wheel"] }
+#]
+
+#[tool.poetry.dependencies]
+#requests = "^2.13.0"
+
+#[project.urls]
+#"Homepage" = "https://github.com/pypa/sampleproject"
+#"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
