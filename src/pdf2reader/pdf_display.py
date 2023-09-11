@@ -63,8 +63,13 @@ class PageRenderer(tk.Frame):
         return img_file
 
     def set_page(self, page: pikepdf.Page):
-        img = self._get_page_as_image(page)
-        self.image_canvas.delete(tk.ALL)
-        self.image_canvas.create_image(0, 0, anchor='nw', image=img)
-        self.image_canvas.image = img
-        # TODO scrollable canvas for rendered PDF page
+        try:
+            img = self._get_page_as_image(page)
+            self.image_canvas.delete(tk.ALL)
+            self.image_canvas.create_image(0, 0, anchor='nw', image=img)
+            self.image_canvas.image = img
+            # TODO scrollable canvas for rendered PDF page
+
+        except Exception as e:
+            logger.exception(f"Failed to render page")
+            tk.messagebox.showerror("Error", "Failed to render page: " + str(e))

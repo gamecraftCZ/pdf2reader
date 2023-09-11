@@ -52,18 +52,27 @@ class MainGUI(tk.Frame):
 
     def _open_file(self):
         path = filedialog.askopenfilename(title="Open PDF file", filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")])
+        if not path:
+            return
+
         logger.debug("Opening pdf file:", path)
-        self.pdf_file = PdfFile.open(path)
-        self.pdf_display.set_pdf_file(self.pdf_file)
 
-        self.current_page.set(0)
-        self.page_count.set(self.pdf_file.page_count)
-        self.is_pdf_opened.set(True)
+        try:
+            self.pdf_file = PdfFile.open(path)
+            self.pdf_display.set_pdf_file(self.pdf_file)
 
-        self.opened_pdf_name.set(Path(path).name)
-        self.root.title("PDF2Reader - " + self.opened_pdf_name.get())
+            self.current_page.set(0)
+            self.page_count.set(self.pdf_file.page_count)
+            self.is_pdf_opened.set(True)
 
-        self.pdf_display.update_page()
+            self.opened_pdf_name.set(Path(path).name)
+            self.root.title("PDF2Reader - " + self.opened_pdf_name.get())
+
+            self.pdf_display.update_page()
+
+        except Exception as e:
+            logger.exception("Failed to open pdf file:", path)
+            tk.messagebox.showerror("Error", "Failed to open pdf file: " + str(e))
 
 
     def _save_file(self):
