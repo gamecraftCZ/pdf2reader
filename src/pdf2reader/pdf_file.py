@@ -1,4 +1,8 @@
+from typing import List
+
 import pikepdf
+
+from src.pdf2reader.data_structures import Box
 
 
 class PdfFile:
@@ -19,3 +23,6 @@ class PdfFile:
     def get_page(self, page_number: int) -> pikepdf.Page:
         return self.pdf.pages[page_number]
 
+    def get_boxes(self, page_number: int) -> List[Box]:
+        # TODO: Implement this
+        return [Box(250, 150, 450, 250, "red", lambda: print("Clicked"))]
