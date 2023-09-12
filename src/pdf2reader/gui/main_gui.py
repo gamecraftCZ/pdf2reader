@@ -60,11 +60,13 @@ class MainGUI(tk.Frame):
         try:
             if self.pdf_file is not None:  # To free up memory
                 del self.pdf_file
+            self.is_pdf_opened.set(False)
+
+            self.current_page.set(0)
 
             self.pdf_file = PdfFile.open(path)
             self.pdf_display.set_pdf_file(self.pdf_file)
 
-            self.current_page.set(0)
             self.page_count.set(self.pdf_file.page_count)
             self.is_pdf_opened.set(True)
 

@@ -33,8 +33,9 @@ class PdfDisplay(tk.Frame):
 
     def update_page(self):
         logger.debug("Updating page to page number:", self.current_page.get())
-        self.page_renderer.set_page(self.pdf_file.get_page(self.current_page.get()))
-        self.page_renderer.set_boxes(self.pdf_file.get_boxes(self.current_page.get()))
+        if self.pdf_file:
+            self.page_renderer.set_page(self.pdf_file.get_page(self.current_page.get()))
+            self.page_renderer.set_boxes(self.pdf_file.get_boxes(self.current_page.get()))
 
     def set_pdf_file(self, pdf_file):
         self.pdf_file = pdf_file

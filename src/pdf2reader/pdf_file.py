@@ -51,6 +51,7 @@ class PdfPage:
         current_section_content = []
 
         current_transformation_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
+        current_text_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
         current_font = ("default_font", 11)  # Some random default value  (name, size)
         text_draw_relative_location = [0, 0]
         text_draw_location = None
@@ -65,6 +66,7 @@ class PdfPage:
 
                 current_section_content = [instruction]
                 current_section_type = PdfPage.Section.SectionType.TEXT
+                current_text_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
                 text_draw_relative_location = [0, 0]
                 text_draw_location = None
 
@@ -74,8 +76,9 @@ class PdfPage:
                 if current_section_type != PdfPage.Section.SectionType.TEXT:
                     print("WARNING: text_section not started, but now ending!")
 
-                sections.append(PdfPage.Section(PdfPage.Section.SectionType.TEXT, current_section_content,
-                                                text_draw_location, {"font": current_font[0], "font_size": current_font[1]}))
+                if text_draw_location:
+                    sections.append(PdfPage.Section(PdfPage.Section.SectionType.TEXT, current_section_content,
+                                                    text_draw_location, {"font": current_font[0], "font_size": current_font[1]}))
                 text_draw_location = None
                 current_section_content = []
                 current_section_type = PdfPage.Section.SectionType.OTHER
@@ -90,23 +93,32 @@ class PdfPage:
                 text_draw_relative_location[0] += float(ops[0])
                 text_draw_relative_location[1] += float(ops[1])
 
+            elif (instruction.operator == pikepdf.Operator("Tj")
+                  or instruction.operator == pikepdf.Operator("TJ")):  # Draw text
+                # For now, we just save the text start position and draw the box there
+                current_section_content.append(instruction)
+                if text_draw_location is None:
+                    loc = (current_transformation_matrix @ current_text_matrix
+                                          @ np.array([[1, 0, 0], [0, 1, 0],
+                                                      [text_draw_relative_location[0],
+                                                       text_draw_relative_location[1],
+                                                       1.]], dtype=np.float64))
+                    text_draw_location = [loc[2][0], loc[2][1]]
+
+            elif instruction.operator == pikepdf.Operator("Tm"):
+                current_section_content.append(instruction)
+                ops = instruction.operands
+                current_text_matrix = np.array([[float(ops[0]), float(ops[1]), .0],
+                                                [float(ops[2]), float(ops[3]), .0],
+                                                [float(ops[4]), float(ops[5]), 1.]], dtype=np.float64)
+
+
             elif instruction.operator == pikepdf.Operator("cm"):  # Transformation matrix command
                 current_section_content.append(instruction)
                 ops = instruction.operands
                 current_transformation_matrix @= np.array([[float(ops[0]), float(ops[1]), .0],
                                                            [float(ops[2]), float(ops[3]), .0],
                                                            [float(ops[4]), float(ops[5]), 1.]], dtype=np.float64)
-
-            elif (instruction.operator == pikepdf.Operator("Tj")
-                  or instruction.operator == pikepdf.Operator("TJ")):  # Draw text
-                # For now, we just save the text start position and draw the box there
-                current_section_content.append(instruction)
-                if text_draw_location is None:
-                    text_draw_location = current_transformation_matrix @ np.array([text_draw_relative_location[0],
-                                                                                           text_draw_relative_location[1],
-                                                                                           1.], dtype=np.float64)
-
-            # TODO add text transformation matrix if
 
             else:
                 current_section_content.append(instruction)
