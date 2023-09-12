@@ -58,6 +58,9 @@ class MainGUI(tk.Frame):
         logger.debug("Opening pdf file:", path)
 
         try:
+            if self.pdf_file is not None:  # To free up memory
+                del self.pdf_file
+
             self.pdf_file = PdfFile.open(path)
             self.pdf_display.set_pdf_file(self.pdf_file)
 

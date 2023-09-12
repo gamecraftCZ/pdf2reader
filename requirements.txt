@@ -1,0 +1,3 @@
+pikepdf  # For working with PDF files
+pymupdf  # For rendering PDF files
+numpy    # For working with transformation matrix
