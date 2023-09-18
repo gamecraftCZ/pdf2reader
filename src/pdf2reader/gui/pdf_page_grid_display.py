@@ -30,6 +30,7 @@ class PdfPageGridDisplay(tk.Frame):
         self.pdf_file = None
 
         self.is_pdf_opened = is_pdf_opened
+        self._page_renderers = []
         self._setup_variables()
         self._prepare_pages()
         self._pack_pages_to_grid()
@@ -37,17 +38,16 @@ class PdfPageGridDisplay(tk.Frame):
 
         self._resize_debouncer = Debouncer(lambda event: self._pack_pages_to_grid())
         self.bind("<Configure>", self._resize_debouncer.process_event)
-        self.a = True
 
     def _setup_variables(self):
         # self.current_page.trace("w", lambda *args: self.update_page())
         self.is_pdf_opened.trace("w", lambda *args: self._pdf_opened_change())
 
     def _prepare_pages(self):
-        self._page_renderers = []
         for page_renderer in self._page_renderers:
             page_renderer.grid_forget()
             page_renderer.destroy()
+        self._page_renderers = []
         if self.pdf_file:
             progress_bar = ProgressBarWindow("Rendering PDF", "Rendering PDF...", 0, self.pdf_file.page_count)
             for page_number in range(self.pdf_file.page_count):
@@ -64,10 +64,6 @@ class PdfPageGridDisplay(tk.Frame):
 
 
     def _pack_pages_to_grid(self):
-        self.scrollframe.forget()
-        self.scrollframe.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
-        # self.scrollframe.grid_forget()
-
         column = 0
         max_columns = 1
         cur_width = 0
@@ -88,12 +84,8 @@ class PdfPageGridDisplay(tk.Frame):
                 column = 0
 
             page_renderer.grid_forget()
-            if self.a:
-                page_renderer.grid(row=row, column=column)
+            page_renderer.grid(row=row, column=column)
             column += 1
-
-        if self._page_renderers:
-            self.a = True
 
         logger.debug("Created new grid layout")
 
@@ -131,7 +123,7 @@ class PageRenderer(tk.Frame):
         self.image_canvas.bind("<Button-1>", self._clicked)
         self.image_canvas.pack(fill=tk.X, side=tk.TOP, expand=False)
 
-    def _get_page_as_image(self, page: pikepdf.Page) -> tk.PhotoImage:
+    def _get_page_as_image(self, page: pikepdf.Page) -> tuple[tk.PhotoImage, float]:
         pdf_stream = io.BytesIO()
         pdf = pikepdf.Pdf.new()
         pdf.pages.append(page)
@@ -184,7 +176,6 @@ class PageRenderer(tk.Frame):
         self.boxes = boxes
 
         for box in boxes:
-            # TODO draw boxes in scaled image
             self.image_canvas.create_rectangle(box.x0 * self.scale, box.y0 * self.scale,
                                                box.x1 * self.scale, box.y1 * self.scale,
                                                outline=box.color, width=2)
