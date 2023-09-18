@@ -6,6 +6,8 @@ import pikepdf
 
 from src.pdf2reader.data_structures import Box
 
+class SectionGroup:
+    pass  # TODO SectionGrouping
 
 class PdfPage:
     def __init__(self, page: pikepdf.Page):
@@ -17,16 +19,25 @@ class PdfPage:
             del self._page["/Contents"]
 
     class Section:
+        # Section information
         typ: "SectionType"
         content: List[pikepdf.ContentStreamInstruction]
+        location: List[float] or None
+        additional: dict or None
+
+        # Section output options
+        keep_in_output: bool
+        section_group: SectionGroup or None
+
 
         class SectionType(Enum):
             TEXT = "text"
             OTHER = "other"
 
-        def __init__(self, typ: SectionType, content: List[pikepdf.ContentStreamInstruction], location: List[float] = None, additional: dict = None):
+        def __init__(self, typ: SectionType, content: List[pikepdf.ContentStreamInstruction], location: List[float] = None, additional: dict = None, keep_in_output: bool = True):
             self.typ = typ
             self.content = content
+            self.keep_in_output = keep_in_output
             self.location = location
             self.additional = additional
 
@@ -38,7 +49,7 @@ class PdfPage:
 
                 return Box(self.location[0] - 5, page_height - self.location[1],
                            self.location[0] + self.additional["font_size"] * 1.2 + 5, page_height - self.location[1] - self.additional["font_size"] * 1.2 + 5,
-                           color="red", on_click=lambda: print("Clicked on text box!"))
+                           color="lightgreen" if self.keep_in_output else "red", on_click=lambda: print("Clicked on text box!"))
 
         def __repr__(self):
             return f"Section(type={self.typ}, len={len(self.content)})"
@@ -152,19 +163,30 @@ class PdfPage:
         return boxes
 
 
-
 class PdfFile:
-    def __init__(self, pdf: pikepdf.Pdf, path: str = None):
+    def __init__(self, pdf: pikepdf.Pdf, path: str = None, progressbar: bool = False):
         self.path = path
         self.pdf = pdf
 
-        self.pages_parsed = [PdfPage(page) for page in self.pdf.pages]
+        if progressbar:
+            from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
+            progress_bar_window = ProgressBarWindow("Parsing PDF", f"Parsing PDF...", 0, len(self.pdf.pages))
+
+        self.pages_parsed = []
+        for page in self.pdf.pages:
+            self.pages_parsed.append(PdfPage(page))
+            if progressbar:
+                progress_bar_window.update_progress(len(self.pages_parsed))
+                progress_bar_window.update_message(f"Parsing PDF... page {len(self.pages_parsed)}/{len(self.pdf.pages)}")
+
+        if progressbar:
+            progress_bar_window.close()
 
 
     @staticmethod
-    def open(path: str) -> "PdfFile":
+    def open(path: str, progressbar: bool = False) -> "PdfFile":
         pdf = pikepdf.open(path)
-        pdf_file = PdfFile(pdf, path)
+        pdf_file = PdfFile(pdf, path, progressbar=progressbar)
         return pdf_file
 
     @property

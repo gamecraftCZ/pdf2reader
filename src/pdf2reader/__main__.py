@@ -1,7 +1,12 @@
+import logging
 import tkinter as tk
 from src.pdf2reader.gui.main_gui import MainGUI
+import sys
+
 
 def main():
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
     root_window = tk.Tk()
     root_window.title("PDF2Reader")
     root_window.geometry("800x600")
