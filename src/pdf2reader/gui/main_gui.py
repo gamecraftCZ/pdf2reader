@@ -4,10 +4,9 @@ from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
 
-from src.pdf2reader.gui.navigation_bar import NavigationBar
-from src.pdf2reader.gui.pdf_display import PdfDisplay
+from src.pdf2reader.gui.page_edit_window import PageEditWindow
 from src.pdf2reader.gui.pdf_page_grid_display import PdfPageGridDisplay
-from src.pdf2reader.pdf_file import PdfFile
+from src.pdf2reader.pdf_file import PdfFile, PdfPage
 
 logger = logging.getLogger(__name__)
 
@@ -45,12 +44,11 @@ class MainGUI(tk.Frame):
         self.file_menu.add_command(label="Save PDF", command=self._save_file_button)
 
     def _create_content(self):
-        self.pdf_grid_display = PdfPageGridDisplay(self, self.is_pdf_opened)
+        self.pdf_grid_display = PdfPageGridDisplay(self, self.is_pdf_opened, page_click_callback=self._open_page_edit_window)
         self.pdf_grid_display.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
-        # self.navigation_bar = NavigationBar(self, self.is_pdf_opened, self.current_page, self.page_count, height=30)
-        # self.navigation_bar.pack(fill=tk.X, side=tk.BOTTOM, expand=False)
-
+    def _open_page_edit_window(self, page: PdfPage, page_number: int):
+        PageEditWindow(self.pdf_file, page_number)
 
     def _open_file_button(self):
         path = filedialog.askopenfilename(title="Open PDF file", filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")])

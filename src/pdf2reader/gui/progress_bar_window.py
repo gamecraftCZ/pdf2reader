@@ -4,7 +4,6 @@ from tkinter import ttk
 
 class ProgressBarWindow:
     def __init__(self, title: str, message: str, current_value: int, max_value: int, on_cancel_callback=None):
-        self.opened = False
         self.window = tk.Toplevel()
         self.window.grab_set()
 

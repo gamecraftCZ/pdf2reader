@@ -6,7 +6,8 @@ logger = logging.getLogger(__name__)
 
 
 class NavigationBar(tk.Frame):
-    def __init__(self, parent: tk.Frame, is_pdf_opened: tk.BooleanVar, current_page: tk.IntVar, page_count: tk.IntVar, *args, **kwargs):
+    def __init__(self, parent: tk.Frame or tk.Tk or tk.Toplevel, is_pdf_opened: tk.BooleanVar,
+                 current_page: tk.IntVar, page_count: tk.IntVar, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
 
         self.current_page = current_page
