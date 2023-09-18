@@ -3,7 +3,7 @@ import logging
 import time
 import tkinter as tk
 from tkinter import ttk
-from typing import List
+from typing import List, Callable
 
 import fitz
 import pikepdf
@@ -11,14 +11,17 @@ from PIL import Image, ImageTk
 
 from src.pdf2reader.data_structures import Box
 from src.pdf2reader.gui.debouncer import Debouncer
+from src.pdf2reader.gui.page_renderer import PageRenderer
 from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
 from src.pdf2reader.gui.vertical_scrolled_frame import VerticalScrolledFrame
+from src.pdf2reader.pdf_file import PdfPage
 
 logger = logging.getLogger(__name__)
 
 
 class PdfPageGridDisplay(tk.Frame):
-    def __init__(self, parent: tk.Frame, is_pdf_opened: tk.BooleanVar, *args, **kwargs):
+    def __init__(self, parent: tk.Frame, is_pdf_opened: tk.BooleanVar,
+                 page_click_callback: Callable[[PdfPage, int], None] = None, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
 
         self.verticalscroll = VerticalScrolledFrame(self)
@@ -28,6 +31,7 @@ class PdfPageGridDisplay(tk.Frame):
         self.scrollframe.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
         self.pdf_file = None
+        self.page_click_callback = page_click_callback
 
         self.is_pdf_opened = is_pdf_opened
         self._page_renderers = []
@@ -51,9 +55,13 @@ class PdfPageGridDisplay(tk.Frame):
         if self.pdf_file:
             progress_bar = ProgressBarWindow("Rendering PDF", "Rendering PDF...", 0, self.pdf_file.page_count)
             for page_number in range(self.pdf_file.page_count):
+                page_number = page_number
                 page = self.pdf_file.get_page(page_number)
 
-                page_renderer = PageRenderer(self.scrollframe, padx=5, pady=5)
+                page_renderer = PageRenderer(self.scrollframe, padx=5, pady=5,
+                                             default_click_callback=(lambda e, page=page, page_number=page_number:
+                                                                     self.page_click_callback(page, int(page_number)))
+                                                                if self.page_click_callback else None)
                 page_renderer.set_page(page)
                 page_renderer.set_boxes(self.pdf_file.get_boxes(page_number))
 
@@ -99,98 +107,7 @@ class PdfPageGridDisplay(tk.Frame):
         self.pdf_file = pdf_file
         self._pdf_opened_change()
 
+    def _open_page_edit_window(self, page_number: int):
+        logger.info(f"Opening page edit window for page {page_number}")
+        self.pdf_file.open_page_edit_window(page_number)
 
-class PageRenderer(tk.Frame):
-    def __init__(self, parent: tk.Frame, *args, **kwargs):
-        tk.Frame.__init__(self, parent, *args, **kwargs)
-
-        self._create_image_canvas()
-        self.height = -1
-        self.width = -1
-        self.scale = 1
-
-        self.max_height = 256
-        self.max_width = 256
-
-        self.padx = kwargs.get("padx", 0)
-        self.pady = kwargs.get("pady", 0)
-
-        self.rendered_page = None
-        self.boxes = []
-
-    def _create_image_canvas(self):
-        self.image_canvas = tk.Canvas(self, background="gray", height=300, width=300)
-        self.image_canvas.bind("<Button-1>", self._clicked)
-        self.image_canvas.pack(fill=tk.X, side=tk.TOP, expand=False)
-
-    def _get_page_as_image(self, page: pikepdf.Page) -> tuple[tk.PhotoImage, float]:
-        pdf_stream = io.BytesIO()
-        pdf = pikepdf.Pdf.new()
-        pdf.pages.append(page)
-        pdf.save(pdf_stream)
-
-        ftz = fitz.open(stream=pdf_stream)
-        page = ftz.load_page(0)
-        ix = page.get_pixmap()
-        imgdata = ix.tobytes("ppm")
-
-        img = Image.open(io.BytesIO(imgdata))
-
-        if img.height / self.max_height > img.width / self.max_width:
-            new_height = self.max_height
-            new_width = img.width / img.height * self.max_height
-        else:
-            new_height = img.height / img.width * self.max_width
-            new_width = self.max_width
-
-        scale = new_width / img.width
-        img = img.resize((int(new_width), int(new_height)))
-
-        photo_img = ImageTk.PhotoImage(img)
-
-        return photo_img, scale
-
-    def set_page(self, page: pikepdf.Page):
-        if not page:
-            self.rendered_page = None
-            self.image_canvas.delete(tk.ALL)
-            return
-
-        try:
-            self.rendered_page, self.scale = self._get_page_as_image(page)
-
-            self.image_canvas.delete(tk.ALL)
-            logger.debug(f"Setting image canvas to height: {self.rendered_page.height()}, width: {self.rendered_page.width()}")
-            self.image_canvas.config(height=self.rendered_page.height(), width=self.rendered_page.width())
-            self.height = self.rendered_page.height() + 2 * self.padx
-            self.width = self.rendered_page.width() + 2 * self.pady
-
-            self.image_canvas.create_image(0, 0, anchor='nw', image=self.rendered_page)
-            self.image_canvas.image = self.rendered_page
-
-        except Exception as e:
-            logger.exception(f"Failed to render page")
-            tk.messagebox.showerror("Error", "Failed to render page: " + str(e))
-
-    def set_boxes(self, boxes: List[Box]):
-        self.boxes = boxes
-
-        for box in boxes:
-            self.image_canvas.create_rectangle(box.x0 * self.scale, box.y0 * self.scale,
-                                               box.x1 * self.scale, box.y1 * self.scale,
-                                               outline=box.color, width=2)
-
-    def _clicked(self, event):
-        print("clicked at", event.x, event.y)
-        if self.rendered_page:
-            for box in self.boxes:
-                if box.x0 < event.x < box.x1 and box.y0 < event.y < box.y1:
-                    popup = tk.Menu(self, tearoff=0)
-                    popup.add_command(label="Main Product")
-                    popup.add_command(label="Side Product")
-                    try:
-                        popup.tk_popup(event.x + self.winfo_rootx(), event.y + self.winfo_rooty(), 0)
-                    finally:
-                        popup.grab_release()
-                    # box.on_click()
-                    break
