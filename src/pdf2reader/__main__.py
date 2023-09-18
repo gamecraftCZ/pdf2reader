@@ -9,7 +9,7 @@ def main():
 
     root_window = tk.Tk()
     root_window.title("PDF2Reader")
-    root_window.geometry("850x600")
+    root_window.geometry("900x600")
     root_window.iconbitmap("assets/pdf2reader_128x128.ico")
     root_window.minsize(100, 50)
 

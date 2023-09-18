@@ -3,11 +3,10 @@ import logging
 import tkinter as tk
 from typing import List, Callable
 
-import fitz
-import pikepdf
-from PIL import Image, ImageTk
+from PIL import ImageTk
 
 from src.pdf2reader.data_structures import Box
+from src.pdf2reader.pdf_file import PdfPage
 
 logger = logging.getLogger(__name__)
 
@@ -39,18 +38,8 @@ class PageRenderer(tk.Frame):
         self.image_canvas.bind("<Button-1>", self._clicked_canvas)
         self.image_canvas.pack(side=tk.TOP, expand=False)
 
-    def _get_page_as_image(self, page: pikepdf.Page) -> tuple[tk.PhotoImage, float]:
-        pdf_stream = io.BytesIO()
-        pdf = pikepdf.Pdf.new()
-        pdf.pages.append(page)
-        pdf.save(pdf_stream)
-
-        ftz = fitz.open(stream=pdf_stream)
-        page = ftz.load_page(0)
-        ix = page.get_pixmap()
-        imgdata = ix.tobytes("ppm")
-
-        img = Image.open(io.BytesIO(imgdata))
+    def _get_page_as_image(self, page: PdfPage) -> tuple[tk.PhotoImage, float]:
+        img = page.get_rendered_image()
 
         new_width, new_height = img.width, img.height
         if self.max_height > -1 and img.height / self.max_height > img.width / self.max_width:
@@ -67,7 +56,7 @@ class PageRenderer(tk.Frame):
 
         return photo_img, scale
 
-    def set_page(self, page: pikepdf.Page):
+    def set_page(self, page: PdfPage):
         if not page:
             self.rendered_page = None
             self.image_canvas.delete(tk.ALL)
@@ -77,7 +66,6 @@ class PageRenderer(tk.Frame):
             self.rendered_page, self.scale = self._get_page_as_image(page)
 
             self.image_canvas.delete(tk.ALL)
-            logger.debug(f"Setting image canvas to height: {self.rendered_page.height()}, width: {self.rendered_page.width()}")
             self.image_canvas.config(height=self.rendered_page.height()-2, width=self.rendered_page.width()-2)
             self.height = self.rendered_page.height() + 2 * self.padx
             self.width = self.rendered_page.width() + 2 * self.pady

@@ -1,14 +1,8 @@
-import io
 import logging
 import tkinter as tk
-from tkinter import ttk
-from typing import List
 
-import fitz
-import pikepdf
-
-from src.pdf2reader.data_structures import Box
 from src.pdf2reader.gui.page_renderer import PageRenderer
+from src.pdf2reader.pdf_file import PdfFile
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +14,7 @@ class PdfDisplay(tk.Frame):
         self.page_renderer = PageRenderer(self)
         self.page_renderer.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
-        self.pdf_file = None
+        self.pdf_file: PdfFile or None = None
 
         self.is_pdf_opened = is_pdf_opened
         self.current_page = current_page

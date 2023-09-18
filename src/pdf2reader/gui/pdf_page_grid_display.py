@@ -1,15 +1,7 @@
-import io
 import logging
-import time
 import tkinter as tk
-from tkinter import ttk
-from typing import List, Callable
+from typing import Callable
 
-import fitz
-import pikepdf
-from PIL import Image, ImageTk
-
-from src.pdf2reader.data_structures import Box
 from src.pdf2reader.gui.debouncer import Debouncer
 from src.pdf2reader.gui.page_renderer import PageRenderer
 from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
@@ -62,7 +54,7 @@ class PdfPageGridDisplay(tk.Frame):
                                              default_click_callback=(lambda e, page=page, page_number=page_number:
                                                                      self.page_click_callback(page, int(page_number)))
                                                                 if self.page_click_callback else None)
-                page_renderer.set_page(page)
+                page_renderer.set_page(self.pdf_file.get_page(page_number))
                 page_renderer.set_boxes(self.pdf_file.get_boxes(page_number))
 
                 self._page_renderers.append(page_renderer)

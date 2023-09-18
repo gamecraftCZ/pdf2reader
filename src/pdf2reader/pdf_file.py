@@ -1,8 +1,11 @@
+import io
 from enum import Enum
 from typing import List
 
+import fitz
 import numpy as np
 import pikepdf
+from PIL import Image
 
 from src.pdf2reader.data_structures import Box
 
@@ -146,7 +149,7 @@ class PdfPage:
             instructions.extend(s.content)
         return pikepdf.unparse_content_stream(instructions)
 
-    def get_page(self) -> pikepdf.Page:
+    def get_pike_page(self) -> pikepdf.Page:
         if "/Contents" in self._page.keys():
             del self._page["/Contents"]
 
@@ -161,6 +164,20 @@ class PdfPage:
                 if box:
                     boxes.append(box)
         return boxes
+
+    def get_rendered_image(self):
+        pdf_stream = io.BytesIO()
+        pdf = pikepdf.Pdf.new()
+        pdf.pages.append(self.get_pike_page())
+        pdf.save(pdf_stream)
+
+        ftz = fitz.open(stream=pdf_stream)
+        page = ftz.load_page(0)
+        ix = page.get_pixmap()
+        imgdata = ix.tobytes("ppm")
+
+        img = Image.open(io.BytesIO(imgdata))
+        return img
 
 
 class PdfFile:
@@ -193,8 +210,11 @@ class PdfFile:
     def page_count(self) -> int:
         return len(self.pdf.pages)
 
-    def get_page(self, page_number: int) -> pikepdf.Page:
-        return self.pages_parsed[page_number].get_page()
+    def get_page(self, page_number: int) -> PdfPage:
+        return self.pages_parsed[page_number]
+
+    def get_pike_page(self, page_number: int) -> pikepdf.Page:
+        return self.pages_parsed[page_number].get_pike_page()
 
     def get_boxes(self, page_number: int) -> List[Box]:
         return [box for box in self.pages_parsed[page_number].get_boxes() if box is not None]
