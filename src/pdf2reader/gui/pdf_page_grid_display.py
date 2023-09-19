@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class PdfPageGridDisplay(tk.Frame):
-    def __init__(self, parent: tk.Frame, is_pdf_opened: tk.BooleanVar,
+    def __init__(self, parent: tk.Frame or tk.Tk or tk.Toplevel, is_pdf_opened: tk.BooleanVar, pdf_file: PdfFile = None,
                  create_page_additional_info: Callable[[tk.Widget, PdfPage, int], tk.Widget] = None,
                  page_click_callback: Callable[[PdfPage, int], None] = None, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
 
-        self.create_page_additional_info = create_page_additional_info
+        self._create_page_additional_info = create_page_additional_info
 
         self.verticalscroll = VerticalScrolledFrame(self)
         self.verticalscroll.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
@@ -25,7 +25,7 @@ class PdfPageGridDisplay(tk.Frame):
         self.scrollframe = tk.Frame(self.verticalscroll.interior)  # This is our GRID frame
         self.scrollframe.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
-        self.pdf_file: PdfFile or None = None
+        self.pdf_file: PdfFile or None = pdf_file
         self.page_click_callback = page_click_callback
 
         self.is_pdf_opened = is_pdf_opened
@@ -53,7 +53,7 @@ class PdfPageGridDisplay(tk.Frame):
                 page_number = page_number
                 page = self.pdf_file.get_page(page_number)
 
-                page_renderer = PageRenderer(self.scrollframe, padx=5, pady=5, create_page_additional_info=self.create_page_additional_info,
+                page_renderer = PageRenderer(self.scrollframe, padx=5, pady=5, create_page_additional_info=self._create_page_additional_info,
                                              default_click_callback=(lambda e, page=page, page_number=page_number:
                                                                      self.page_click_callback(page, int(page_number)))
                                                                 if self.page_click_callback else None)
@@ -103,3 +103,7 @@ class PdfPageGridDisplay(tk.Frame):
 
     def reload_single_page_change_marks(self, page_number: int):
         self._page_renderers[page_number].reload_change_marks()
+
+    def reload_all_pages_change_marks(self):
+        for page_renderer in self._page_renderers:
+            page_renderer.reload_change_marks()

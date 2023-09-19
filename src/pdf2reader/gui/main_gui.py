@@ -49,7 +49,9 @@ class MainGUI(tk.Frame):
         self.pdf_grid_display.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
     def _open_page_edit_window(self, page: PdfPage, page_number: int):
-        PageEditWindow(self.pdf_file, page_number, close_callback=lambda: self.pdf_grid_display.reload_single_page_change_marks(page_number))
+        PageEditWindow(self.pdf_file, page_number,
+                       close_callback=lambda: self.pdf_grid_display.reload_single_page_change_marks(page_number),
+                       reload_all_pages_callback=lambda: self.pdf_grid_display.reload_all_pages_change_marks())
 
     def _open_file_button(self):
         path = filedialog.askopenfilename(title="Open PDF file", filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")])

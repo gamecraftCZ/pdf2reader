@@ -1,9 +1,10 @@
 import logging
 import tkinter as tk
-from typing import Callable
+from typing import Callable, List
 
 from src.pdf2reader.gui.crop_selector import CropSelector
 from src.pdf2reader.gui.page_renderer import PageRenderer
+from src.pdf2reader.gui.select_pages_to_action_window import SelectPagesToActionWindow
 from src.pdf2reader.pdf_file import PdfFile, PdfPage
 from src.pdf2reader.gui.navigation_bar import NavigationBar
 
@@ -11,10 +12,12 @@ logger = logging.getLogger(__name__)
 
 
 class PageEditWindow:
-    def __init__(self, pdf_file: PdfFile, page_number: int, close_callback: Callable = None):
+    def __init__(self, pdf_file: PdfFile, page_number: int, close_callback: Callable = None,
+                 reload_all_pages_callback: Callable = None):
         self.pdf_file = pdf_file
         self.page = self.pdf_file.pages_parsed[page_number]
         self.close_callback = close_callback
+        self.reload_all_pages_callback = reload_all_pages_callback
 
         self.window = tk.Toplevel()
         self.window.grab_set()
@@ -36,9 +39,12 @@ class PageEditWindow:
     def _setup_layout(self):
         self.page_renderer = PageRenderer(self.window, max_width=-1, max_height=-1)
         self.page_renderer.set_page(self.page, self.current_page.get())
+        self.page_renderer.set_boxes(self.pdf_file.get_boxes(self.current_page.get()))
 
-        self.page_edit_controls = PageEditControls(self.window, self.page_renderer.image_canvas, self.page,
-                                                   self.page_renderer, padx=5, pady=2)
+        self.page_edit_controls = PageEditControls(self.window, self.page_renderer.image_canvas,
+                                                   self.current_page.get(),
+                                                   self.pdf_file, self.page_renderer, padx=5, pady=2,
+                                                   reload_all_pages_callback=self.reload_all_pages_callback)
 
         # self.navigation_bar = NavigationBar(self.window, self.is_pdf_opened, self.current_page, self.page_count, height=30)
 
@@ -74,11 +80,15 @@ class PageEditWindow:
 
 
 class PageEditControls(tk.Frame):
-    def __init__(self, parent, canvas: tk.Canvas, page: PdfPage, page_renderer: PageRenderer, *args, **kwargs):
+    def __init__(self, parent, canvas: tk.Canvas, page_number: int, pdf_file: PdfFile, page_renderer: PageRenderer,
+                 reload_all_pages_callback: Callable = None, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
         self.canvas = canvas
-        self.page = page
+        self.pdf_file = pdf_file
+        self.page_number = page_number
+        self.page = pdf_file.get_page(page_number)
         self.page_renderer = page_renderer
+        self.reload_all_pages_callback = reload_all_pages_callback
 
         self.crop_already_exists = self.page.crop_area is not None
 
@@ -106,9 +116,25 @@ class PageEditControls(tk.Frame):
                 == self.page_renderer.crop_selected_area[1].get() == self.page_renderer.crop_selected_area[3].get()):
             return
 
-        self.crop_already_exists = True
-        self._crop_done(self.page_renderer.crop_selected_area[0].get(), self.page_renderer.crop_selected_area[1].get(),
-                        self.page_renderer.crop_selected_area[2].get(), self.page_renderer.crop_selected_area[3].get())
+        # Opening select pages action window is non blocking!
+        SelectPagesToActionWindow("Select pages to crop", self.pdf_file, save_callback=self._save_callback,
+                                  checkbox_text="Crop", preselected_pages=[self.page_number])
+
+    def _save_callback(self, selected_pages: List[int]):
+        x1, y1, x2, y2 = self.page_renderer.crop_selected_area[0].get(), self.page_renderer.crop_selected_area[1].get(), \
+            self.page_renderer.crop_selected_area[2].get(), self.page_renderer.crop_selected_area[3].get()
+
+        for page_number in selected_pages:
+            page = self.pdf_file.get_page(page_number)
+            page.crop_area = [x1, y2, x2, y1]
+
+        if self.page_number in selected_pages:
+            self.crop_already_exists = True
+        else:
+            pass  # TODO: Revert rendered page crop if this page is not the one cropped
+
+        if self.reload_all_pages_callback:
+            self.reload_all_pages_callback()
 
     def _crop_done(self, x1: int, y1: int, x2: int, y2: int):
         self.page.crop_area = [x1, y2, x2, y1]
