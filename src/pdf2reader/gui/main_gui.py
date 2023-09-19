@@ -44,7 +44,8 @@ class MainGUI(tk.Frame):
         self.file_menu.add_command(label="Save PDF", command=self._save_file_button)
 
     def _create_content(self):
-        self.pdf_grid_display = PdfPageGridDisplay(self, self.is_pdf_opened, page_click_callback=self._open_page_edit_window)
+        self.pdf_grid_display = PdfPageGridDisplay(self, self.is_pdf_opened, page_click_callback=self._open_page_edit_window,
+                                                   create_page_additional_info=lambda master, page, page_number: tk.Label(master, text=f"{page_number + 1}"))
         self.pdf_grid_display.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
     def _open_page_edit_window(self, page: PdfPage, page_number: int):

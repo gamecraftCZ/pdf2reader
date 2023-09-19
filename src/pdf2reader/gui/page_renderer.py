@@ -11,10 +11,14 @@ from src.pdf2reader.pdf_file import PdfPage
 
 logger = logging.getLogger(__name__)
 
+
 class PageRenderer(tk.Frame):
-    def __init__(self, parent: tk.Frame or tk.Toplevel or tk.Tk, default_click_callback: Callable = None,
+    def __init__(self, parent: tk.Frame or tk.Toplevel or tk.Tk,
+                 create_page_additional_info: Callable[[tk.Widget, PdfPage, int], tk.Widget] = None,
+                 default_click_callback: Callable = None,
                  max_height: int = 256, max_width: int = 256, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
+        self.create_page_additional_info = create_page_additional_info
 
         self.height = -1
         self.width = -1
@@ -26,7 +30,11 @@ class PageRenderer(tk.Frame):
         self.padx = kwargs.get("padx", 0)
         self.pady = kwargs.get("pady", 0)
 
-        self.rendered_page: PdfPage or None = None
+        self.page: PdfPage or None = None
+        self.page_number = -1
+
+        self.rendered_page = None
+        self.additional_info = None
         self.boxes = []
         self.default_click_callback = default_click_callback
 
@@ -34,6 +42,11 @@ class PageRenderer(tk.Frame):
         self.crop_renderer = None
 
         self._create_image_canvas()
+
+        # if self.create_page_additional_info:
+        #     self.additional_info = self.create_page_additional_info(self.page, self.page_number)
+        #     self.additional_info.pack(fill=tk.X, side=tk.TOP, expand=False)
+
         if self.default_click_callback:
             self.image_canvas.config(cursor="hand1")
 
@@ -60,7 +73,7 @@ class PageRenderer(tk.Frame):
 
         return photo_img, scale
 
-    def set_page(self, page: PdfPage):
+    def set_page(self, page: PdfPage, page_number: int):
         if not page:
             self.rendered_page = None
             self.image_canvas.delete(tk.ALL)
@@ -70,10 +83,11 @@ class PageRenderer(tk.Frame):
 
         try:
             self.page = page
+            self.page_number = page_number
             self.rendered_page, self.scale = self._get_page_as_image(page)
 
             self.image_canvas.delete(tk.ALL)
-            self.image_canvas.config(height=self.rendered_page.height()-2, width=self.rendered_page.width()-2)
+            self.image_canvas.config(height=self.rendered_page.height() - 2, width=self.rendered_page.width() - 2)
             self.height = self.rendered_page.height() + 2 * self.padx
             self.width = self.rendered_page.width() + 2 * self.pady
 
@@ -88,9 +102,16 @@ class PageRenderer(tk.Frame):
                 self.crop_selected_area[2].set(page.crop_area[2] * self.scale)
                 self.crop_selected_area[3].set(page.crop_area[1] * self.scale)
 
-            self.crop_renderer = CropSelector(self.image_canvas, self.crop_selected_area, crop_already_exists=bool(page.crop_area),
+            self.crop_renderer = CropSelector(self.image_canvas, self.crop_selected_area,
+                                              crop_already_exists=bool(page.crop_area),
                                               max_x=page.original_crop_area[2] - page.original_crop_area[0],
                                               max_y=page.original_crop_area[3] - page.original_crop_area[1])
+
+            if self.additional_info:
+                self.additional_info.pack_forget()
+            if self.create_page_additional_info:
+                self.additional_info = self.create_page_additional_info(self, self.page, self.page_number)
+                self.additional_info.pack(fill=tk.X, side=tk.TOP, expand=False)
 
         except Exception as e:
             logger.exception(f"Failed to render page")
@@ -112,8 +133,10 @@ class PageRenderer(tk.Frame):
         if self.page:
             self.set_boxes(self.page.get_boxes())
             if self.page.crop_area:
-                self.crop_renderer.set_crop_area(self.page.crop_area[0] * self.scale, self.page.crop_area[3] * self.scale,
-                                                    self.page.crop_area[2] * self.scale, self.page.crop_area[1] * self.scale)
+                self.crop_renderer.set_crop_area(self.page.crop_area[0] * self.scale,
+                                                 self.page.crop_area[3] * self.scale,
+                                                 self.page.crop_area[2] * self.scale,
+                                                 self.page.crop_area[1] * self.scale)
 
     def _clicked_canvas(self, event):
         if self.rendered_page:

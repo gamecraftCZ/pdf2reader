@@ -13,8 +13,11 @@ logger = logging.getLogger(__name__)
 
 class PdfPageGridDisplay(tk.Frame):
     def __init__(self, parent: tk.Frame, is_pdf_opened: tk.BooleanVar,
+                 create_page_additional_info: Callable[[tk.Widget, PdfPage, int], tk.Widget] = None,
                  page_click_callback: Callable[[PdfPage, int], None] = None, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
+
+        self.create_page_additional_info = create_page_additional_info
 
         self.verticalscroll = VerticalScrolledFrame(self)
         self.verticalscroll.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
@@ -50,11 +53,11 @@ class PdfPageGridDisplay(tk.Frame):
                 page_number = page_number
                 page = self.pdf_file.get_page(page_number)
 
-                page_renderer = PageRenderer(self.scrollframe, padx=5, pady=5,
+                page_renderer = PageRenderer(self.scrollframe, padx=5, pady=5, create_page_additional_info=self.create_page_additional_info,
                                              default_click_callback=(lambda e, page=page, page_number=page_number:
                                                                      self.page_click_callback(page, int(page_number)))
                                                                 if self.page_click_callback else None)
-                page_renderer.set_page(self.pdf_file.get_page(page_number))
+                page_renderer.set_page(self.pdf_file.get_page(page_number), page_number)
                 page_renderer.set_boxes(self.pdf_file.get_boxes(page_number))
 
                 self._page_renderers.append(page_renderer)
