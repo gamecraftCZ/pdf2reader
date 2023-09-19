@@ -1,4 +1,5 @@
 import io
+import logging
 from enum import Enum
 from typing import List
 
@@ -8,6 +9,9 @@ import pikepdf
 from PIL import Image
 
 from src.pdf2reader.data_structures import Box
+
+logger = logging.getLogger(__name__)
+
 
 class SectionGroup:
     pass  # TODO SectionGrouping
@@ -20,6 +24,10 @@ class PdfPage:
         self.sections = self._parse_sections(pikepdf.parse_content_stream(self._page))
         if "/Contents" in self._page.keys():
             del self._page["/Contents"]
+
+        self.original_crop_area = [self._page.mediabox[0], self._page.mediabox[1], self._page.mediabox[2], self._page.mediabox[3]]
+
+        self.crop_area = None
 
     class Section:
         # Section information
@@ -47,7 +55,7 @@ class PdfPage:
         def get_bounding_box(self, page_height: float) -> Box or None:
             if self.typ == PdfPage.Section.SectionType.TEXT:
                 if self.location is None:
-                    print("WARNING: Text section has no location!")
+                    logger.warning("WARNING: Text section has no location!")
                     return None
 
                 return Box(self.location[0] - 5, page_height - self.location[1],
@@ -76,7 +84,7 @@ class PdfPage:
                     sections.append(PdfPage.Section(current_section_type, current_section_content))
 
                 if current_section_type == PdfPage.Section.SectionType.TEXT:
-                    print("WARNING: text_section already started!")
+                    logger.warning("WARNING: text_section already started!")
 
                 current_section_content = [instruction]
                 current_section_type = PdfPage.Section.SectionType.TEXT
@@ -88,7 +96,7 @@ class PdfPage:
                 current_section_content.append(instruction)
 
                 if current_section_type != PdfPage.Section.SectionType.TEXT:
-                    print("WARNING: text_section not started, but now ending!")
+                    logger.warning("WARNING: text_section not started, but now ending!")
 
                 if text_draw_location:
                     sections.append(PdfPage.Section(PdfPage.Section.SectionType.TEXT, current_section_content,
@@ -149,7 +157,7 @@ class PdfPage:
             instructions.extend(s.content)
         return pikepdf.unparse_content_stream(instructions)
 
-    def get_pike_page(self) -> pikepdf.Page:
+    def get_original_pike_page(self) -> pikepdf.Page:
         if "/Contents" in self._page.keys():
             del self._page["/Contents"]
 
@@ -168,7 +176,7 @@ class PdfPage:
     def get_rendered_image(self):
         pdf_stream = io.BytesIO()
         pdf = pikepdf.Pdf.new()
-        pdf.pages.append(self.get_pike_page())
+        pdf.pages.append(self.get_original_pike_page())
         pdf.save(pdf_stream)
 
         ftz = fitz.open(stream=pdf_stream)
@@ -214,7 +222,7 @@ class PdfFile:
         return self.pages_parsed[page_number]
 
     def get_pike_page(self, page_number: int) -> pikepdf.Page:
-        return self.pages_parsed[page_number].get_pike_page()
+        return self.pages_parsed[page_number].get_original_pike_page()
 
     def get_boxes(self, page_number: int) -> List[Box]:
         return [box for box in self.pages_parsed[page_number].get_boxes() if box is not None]

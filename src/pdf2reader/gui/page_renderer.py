@@ -79,8 +79,10 @@ class PageRenderer(tk.Frame):
 
     def set_boxes(self, boxes: List[Box]):
         self.boxes = boxes
+        self._render_boxes()
 
-        for box in boxes:
+    def _render_boxes(self):
+        for box in self.boxes:
             self.image_canvas.create_rectangle(box.x0 * self.scale, box.y0 * self.scale,
                                                box.x1 * self.scale, box.y1 * self.scale,
                                                outline=box.color, width=2)
