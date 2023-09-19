@@ -11,7 +11,7 @@ def main():
     root_window.title("PDF2Reader")
     root_window.geometry("900x600")
     root_window.iconbitmap("assets/pdf2reader_128x128.ico")
-    root_window.minsize(100, 50)
+    root_window.minsize(150, 50)
 
     app = MainGUI(root_window, borderwidth=3)
     app.pack(fill=tk.BOTH, expand=True)

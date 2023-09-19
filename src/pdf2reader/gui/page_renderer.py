@@ -6,6 +6,7 @@ from typing import List, Callable
 from PIL import ImageTk
 
 from src.pdf2reader.data_structures import Box
+from src.pdf2reader.gui.crop_selector import CropSelector
 from src.pdf2reader.pdf_file import PdfPage
 
 logger = logging.getLogger(__name__)
@@ -25,9 +26,12 @@ class PageRenderer(tk.Frame):
         self.padx = kwargs.get("padx", 0)
         self.pady = kwargs.get("pady", 0)
 
-        self.rendered_page = None
+        self.rendered_page: PdfPage or None = None
         self.boxes = []
         self.default_click_callback = default_click_callback
+
+        self.crop_selected_area = [tk.IntVar(), tk.IntVar(), tk.IntVar(), tk.IntVar()]
+        self.crop_renderer = None
 
         self._create_image_canvas()
         if self.default_click_callback:
@@ -60,9 +64,12 @@ class PageRenderer(tk.Frame):
         if not page:
             self.rendered_page = None
             self.image_canvas.delete(tk.ALL)
+            if self.crop_renderer:
+                self.crop_renderer.destroy()
             return
 
         try:
+            self.page = page
             self.rendered_page, self.scale = self._get_page_as_image(page)
 
             self.image_canvas.delete(tk.ALL)
@@ -72,6 +79,18 @@ class PageRenderer(tk.Frame):
 
             self.image_canvas.create_image(0, 0, anchor='nw', image=self.rendered_page)
             self.image_canvas.image = self.rendered_page
+
+            if self.crop_renderer:
+                self.crop_renderer.destroy()
+            if page.crop_area:
+                self.crop_selected_area[0].set(page.crop_area[0] * self.scale)
+                self.crop_selected_area[1].set(page.crop_area[3] * self.scale)
+                self.crop_selected_area[2].set(page.crop_area[2] * self.scale)
+                self.crop_selected_area[3].set(page.crop_area[1] * self.scale)
+
+            self.crop_renderer = CropSelector(self.image_canvas, self.crop_selected_area, crop_already_exists=bool(page.crop_area),
+                                              max_x=page.original_crop_area[2] - page.original_crop_area[0],
+                                              max_y=page.original_crop_area[3] - page.original_crop_area[1])
 
         except Exception as e:
             logger.exception(f"Failed to render page")
@@ -83,9 +102,18 @@ class PageRenderer(tk.Frame):
 
     def _render_boxes(self):
         for box in self.boxes:
+            self.image_canvas.delete(box)
+        for box in self.boxes:
             self.image_canvas.create_rectangle(box.x0 * self.scale, box.y0 * self.scale,
                                                box.x1 * self.scale, box.y1 * self.scale,
                                                outline=box.color, width=2)
+
+    def reload_change_marks(self):
+        if self.page:
+            self.set_boxes(self.page.get_boxes())
+            if self.page.crop_area:
+                self.crop_renderer.set_crop_area(self.page.crop_area[0] * self.scale, self.page.crop_area[3] * self.scale,
+                                                    self.page.crop_area[2] * self.scale, self.page.crop_area[1] * self.scale)
 
     def _clicked_canvas(self, event):
         if self.rendered_page:

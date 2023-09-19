@@ -6,7 +6,7 @@ from src.pdf2reader.gui.debouncer import Debouncer
 from src.pdf2reader.gui.page_renderer import PageRenderer
 from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
 from src.pdf2reader.gui.vertical_scrolled_frame import VerticalScrolledFrame
-from src.pdf2reader.pdf_file import PdfPage
+from src.pdf2reader.pdf_file import PdfPage, PdfFile
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class PdfPageGridDisplay(tk.Frame):
         self.scrollframe = tk.Frame(self.verticalscroll.interior)  # This is our GRID frame
         self.scrollframe.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
-        self.pdf_file = None
+        self.pdf_file: PdfFile or None = None
         self.page_click_callback = page_click_callback
 
         self.is_pdf_opened = is_pdf_opened
@@ -35,8 +35,8 @@ class PdfPageGridDisplay(tk.Frame):
         self._resize_debouncer = Debouncer(lambda event: self._pack_pages_to_grid())
         self.bind("<Configure>", self._resize_debouncer.process_event)
 
+
     def _setup_variables(self):
-        # self.current_page.trace("w", lambda *args: self.update_page())
         self.is_pdf_opened.trace("w", lambda *args: self._pdf_opened_change())
 
     def _prepare_pages(self):
@@ -61,7 +61,6 @@ class PdfPageGridDisplay(tk.Frame):
                 progress_bar.update_progress(page_number)
                 progress_bar.update_message(f"Rendering PDF pages... page {page_number + 1}/{self.pdf_file.page_count}")
             progress_bar.close()
-
 
     def _pack_pages_to_grid(self):
         column = 0
@@ -95,11 +94,9 @@ class PdfPageGridDisplay(tk.Frame):
             self._prepare_pages()
             self._pack_pages_to_grid()
 
-    def set_pdf_file(self, pdf_file):
+    def set_pdf_file(self, pdf_file: PdfFile):
         self.pdf_file = pdf_file
         self._pdf_opened_change()
 
-    def _open_page_edit_window(self, page_number: int):
-        logger.info(f"Opening page edit window for page {page_number}")
-        self.pdf_file.open_page_edit_window(page_number)
-
+    def reload_single_page_change_marks(self, page_number: int):
+        self._page_renderers[page_number].reload_change_marks()

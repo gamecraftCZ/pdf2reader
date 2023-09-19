@@ -18,10 +18,6 @@ class CropSelector:
 
         self.crop_enabled = False
 
-        self.canvas.bind("<ButtonPress-1>", self._drag_start)
-        self.canvas.bind("<ButtonRelease-1>", self._drag_stop)
-        self.canvas.bind("<B1-Motion>", self._drag)
-
         self.crop_indicator = None
         self.crop_created = crop_already_exists
         self.dragging = False
@@ -88,6 +84,10 @@ class CropSelector:
         rearange_coordinates_tkvars(self.crop_selected_area[0], self.crop_selected_area[1],
                                     self.crop_selected_area[2], self.crop_selected_area[3])
 
+        self.cap_crop_selected_area()
+        self.crop_indicator.set_crop_location(self.crop_selected_area[0].get(), self.crop_selected_area[1].get(),
+                                              self.crop_selected_area[2].get(), self.crop_selected_area[3].get())
+
     def _drag(self, event):
         if not self.crop_enabled:
             return
@@ -107,7 +107,8 @@ class CropSelector:
                 self.dragging_coordinates[0].set(new_x) if new_x else None
                 self.dragging_coordinates[1].set(new_y) if new_y else None
 
-            self.cap_crop_selected_area()
+                self.cap_crop_selected_area()
+
             self.crop_indicator.set_crop_location(self.crop_selected_area[0].get(), self.crop_selected_area[1].get(),
                                                   self.crop_selected_area[2].get(), self.crop_selected_area[3].get())
 
@@ -125,7 +126,8 @@ class CropSelector:
         self.crop_selected_area[3].set(min(self.max_y, self.crop_selected_area[3].get()))
 
     def destroy(self):
-        self.crop_indicator.destroy()
+        if self.crop_indicator:
+            self.crop_indicator.destroy()
 
     def switch_to_cropping(self):
         if not self.crop_enabled:
@@ -139,6 +141,10 @@ class CropSelector:
                                                       self.crop_selected_area[2].get(),
                                                       self.crop_selected_area[3].get())
 
+            self.canvas.bind("<ButtonPress-1>", self._drag_start)
+            self.canvas.bind("<ButtonRelease-1>", self._drag_stop)
+            self.canvas.bind("<B1-Motion>", self._drag)
+
     def switch_to_indicator(self):
         if self.crop_enabled:
             self.crop_enabled = False
@@ -149,6 +155,29 @@ class CropSelector:
                                                                             self.crop_selected_area[1].get(),
                                                                             self.crop_selected_area[2].get(),
                                                                             self.crop_selected_area[3].get()])
+
+            self.canvas.unbind("<ButtonPress-1>")
+            self.canvas.unbind("<ButtonRelease-1>")
+            self.canvas.unbind("<B1-Motion>")
+
+    def set_crop_area(self, x1: int, y1: int, x2: int, y2: int):
+        self.crop_selected_area[0].set(x1)
+        self.crop_selected_area[1].set(y1)
+        self.crop_selected_area[2].set(x2)
+        self.crop_selected_area[3].set(y2)
+        self.crop_created = True
+
+        if not self.crop_indicator:
+            self.crop_indicator = self.IndicatorSelection(self.canvas, [self.crop_selected_area[0].get(),
+                                                                        self.crop_selected_area[1].get(),
+                                                                        self.crop_selected_area[2].get(),
+                                                                        self.crop_selected_area[3].get()])
+        else:
+            self.crop_indicator.set_crop_location(self.crop_selected_area[0].get(),
+                                                  self.crop_selected_area[1].get(),
+                                                  self.crop_selected_area[2].get(),
+                                                  self.crop_selected_area[3].get())
+
 
     class CroppingSelection:
         def __init__(self, canvas: tk.Canvas):
