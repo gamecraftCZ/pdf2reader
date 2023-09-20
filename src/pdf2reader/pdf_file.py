@@ -25,8 +25,8 @@ class PdfPage:
         self._original_rendered = self.render_page_as_image(self._page)
 
         self.sections = self._parse_sections(pikepdf.parse_content_stream(self._page))
-        if "/Contents" in self._page.keys():
-            del self._page["/Contents"]
+        # if "/Contents" in self._page.keys():
+        #     del self._page["/Contents"]
 
         self.original_crop_area = [self._page.mediabox[0], self._page.mediabox[1], self._page.mediabox[2], self._page.mediabox[3]]
 
@@ -169,19 +169,19 @@ class PdfPage:
         return instructions
 
     def get_original_pike_page(self) -> pikepdf.Page:
-        if "/Contents" in self._page.keys():
-            del self._page["/Contents"]
+        # if "/Contents" in self._page.keys():
+        #     del self._page["/Contents"]
 
         self._page.mediabox = self.original_crop_area
-        self._page.contents_add(self._original_content)
+        # self._page.contents_add(self._original_content)
         return self._page
 
     def get_edited_pike_page(self) -> pikepdf.Page:
-        if "/Contents" in self._page.keys():
-            del self._page["/Contents"]
+        # if "/Contents" in self._page.keys():
+        #     del self._page["/Contents"]
 
         self._page.mediabox = self.crop_area if self.crop_area else self.original_crop_area
-        self._page.contents_add(pikepdf.unparse_content_stream(self._join_sections(self.sections)))
+        # self._page.contents_add(pikepdf.unparse_content_stream(self._join_sections(self.sections)))
         return self._page
 
     def get_boxes(self) -> List[Box]:
@@ -255,17 +255,18 @@ class PdfFile:
         return [box for box in self.pages_parsed[page_number].get_boxes() if box is not None]
 
     def save(self, path: str, progressbar: bool = False):
-        pdf = pikepdf.Pdf.new()
         if progressbar:
             from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
             progress_bar_window = ProgressBarWindow("Saving PDF", f"Saving PDF...", 0, len(self.pages_parsed))
-        for page in self.pages_parsed:
-            pdf.pages.append(page.get_edited_pike_page())
+
+        for i, page in enumerate(self.pages_parsed):
+            page.get_edited_pike_page()  # Just so that page data is updated before saving
+
             if progressbar:
-                progress_bar_window.update_progress(len(pdf.pages))
-                progress_bar_window.update_message(f"Saving PDF... page {len(pdf.pages)}/{len(self.pages_parsed)}")
+                progress_bar_window.update_progress(i + 1)
+                progress_bar_window.update_message(f"Saving PDF... page {i + 1}/{len(self.pages_parsed)}")
 
         if progressbar:
             progress_bar_window.close()
 
-        pdf.save(path)
+        self.pdf.save(path)
