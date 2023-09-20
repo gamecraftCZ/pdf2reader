@@ -56,7 +56,7 @@ class PageRenderer(tk.Frame):
         self.image_canvas.pack(side=tk.TOP, expand=False)
 
     def _get_page_as_image(self, page: PdfPage) -> tuple[tk.PhotoImage, float]:
-        img = page.get_rendered_image()
+        img = page.get_original_rendered_image()
 
         new_width, new_height = img.width, img.height
         if self.max_height > -1 and img.height / self.max_height > img.width / self.max_width:

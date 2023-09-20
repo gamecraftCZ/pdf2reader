@@ -21,6 +21,9 @@ class PdfPage:
         self._page = page
         self._parsed_stream = pikepdf.parse_content_stream(self._page)
 
+        self._original_content = pikepdf.unparse_content_stream(self._parsed_stream)
+        self._original_rendered = self.render_page_as_image(self._page)
+
         self.sections = self._parse_sections(pikepdf.parse_content_stream(self._page))
         if "/Contents" in self._page.keys():
             del self._page["/Contents"]
@@ -155,13 +158,22 @@ class PdfPage:
         instructions = []
         for s in sections:
             instructions.extend(s.content)
-        return pikepdf.unparse_content_stream(instructions)
+        return instructions
 
     def get_original_pike_page(self) -> pikepdf.Page:
         if "/Contents" in self._page.keys():
             del self._page["/Contents"]
 
-        self._page.contents_add(pikepdf.unparse_content_stream(self._parsed_stream))
+        self._page.mediabox = self.original_crop_area
+        self._page.contents_add(self._original_content)
+        return self._page
+
+    def get_edited_pike_page(self) -> pikepdf.Page:
+        if "/Contents" in self._page.keys():
+            del self._page["/Contents"]
+
+        self._page.mediabox = self.crop_area if self.crop_area else self.original_crop_area
+        self._page.contents_add(pikepdf.unparse_content_stream(self._join_sections(self.sections)))
         return self._page
 
     def get_boxes(self) -> List[Box]:
@@ -173,10 +185,11 @@ class PdfPage:
                     boxes.append(box)
         return boxes
 
-    def get_rendered_image(self):
+    @staticmethod
+    def render_page_as_image(page: pikepdf.Page) -> Image:
         pdf_stream = io.BytesIO()
         pdf = pikepdf.Pdf.new()
-        pdf.pages.append(self.get_original_pike_page())
+        pdf.pages.append(page)
         pdf.save(pdf_stream)
 
         ftz = fitz.open(stream=pdf_stream)
@@ -187,6 +200,12 @@ class PdfPage:
         img = Image.open(io.BytesIO(imgdata))
         return img
 
+    def get_original_rendered_image(self):
+        return self._original_rendered
+
+    def get_edited_rendered_image(self):
+        return self.render_page_as_image(self.get_edited_pike_page())
+
 
 class PdfFile:
     def __init__(self, pdf: pikepdf.Pdf, path: str = None, progressbar: bool = False):
@@ -195,14 +214,14 @@ class PdfFile:
 
         if progressbar:
             from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
-            progress_bar_window = ProgressBarWindow("Parsing PDF", f"Parsing PDF...", 0, len(self.pdf.pages))
+            progress_bar_window = ProgressBarWindow("Loading PDF", f"Loading PDF...", 0, len(self.pdf.pages))
 
         self.pages_parsed = []
         for page in self.pdf.pages:
             self.pages_parsed.append(PdfPage(page))
             if progressbar:
                 progress_bar_window.update_progress(len(self.pages_parsed))
-                progress_bar_window.update_message(f"Parsing PDF... page {len(self.pages_parsed)}/{len(self.pdf.pages)}")
+                progress_bar_window.update_message(f"Loading PDF... page {len(self.pages_parsed)}/{len(self.pdf.pages)}")
 
         if progressbar:
             progress_bar_window.close()
