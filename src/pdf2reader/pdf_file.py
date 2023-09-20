@@ -68,6 +68,14 @@ class PdfPage:
         def __repr__(self):
             return f"Section(type={self.typ}, len={len(self.content)})"
 
+    @property
+    def original_height(self) -> int:
+        return int(self._page.mediabox[3] - self._page.mediabox[1])
+
+    @property
+    def original_width(self) -> int:
+        return int(self._page.mediabox[2] - self._page.mediabox[0])
+
     @staticmethod
     def _parse_sections(parsed_stream: List[pikepdf.ContentStreamInstruction]):
         sections = []

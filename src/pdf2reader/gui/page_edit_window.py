@@ -126,7 +126,7 @@ class PageEditControls(tk.Frame):
 
         for page_number in selected_pages:
             page = self.pdf_file.get_page(page_number)
-            page.crop_area = [x1, y2, x2, y1]
+            page.crop_area = [x1, page.original_height - y1, x2, page.original_height - y2]
 
         if self.page_number in selected_pages:
             self.crop_already_exists = True
@@ -135,6 +135,3 @@ class PageEditControls(tk.Frame):
 
         if self.reload_all_pages_callback:
             self.reload_all_pages_callback()
-
-    def _crop_done(self, x1: int, y1: int, x2: int, y2: int):
-        self.page.crop_area = [x1, y2, x2, y1]

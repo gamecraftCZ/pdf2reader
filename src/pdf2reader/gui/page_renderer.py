@@ -98,9 +98,9 @@ class PageRenderer(tk.Frame):
                 self.crop_renderer.destroy()
             if page.crop_area:
                 self.crop_selected_area[0].set(page.crop_area[0] * self.scale)
-                self.crop_selected_area[1].set(page.crop_area[3] * self.scale)
+                self.crop_selected_area[1].set((page.original_height - page.crop_area[1]) * self.scale)
                 self.crop_selected_area[2].set(page.crop_area[2] * self.scale)
-                self.crop_selected_area[3].set(page.crop_area[1] * self.scale)
+                self.crop_selected_area[3].set((page.original_height - page.crop_area[3]) * self.scale)
 
             self.crop_renderer = CropSelector(self.image_canvas, self.crop_selected_area,
                                               crop_already_exists=bool(page.crop_area),
@@ -134,9 +134,9 @@ class PageRenderer(tk.Frame):
             self.set_boxes(self.page.get_boxes())
             if self.page.crop_area:
                 self.crop_renderer.set_crop_area(self.page.crop_area[0] * self.scale,
-                                                 self.page.crop_area[3] * self.scale,
+                                                 (self.page.original_height - self.page.crop_area[1]) * self.scale,
                                                  self.page.crop_area[2] * self.scale,
-                                                 self.page.crop_area[1] * self.scale)
+                                                 (self.page.original_height - self.page.crop_area[3]) * self.scale)
 
     def _clicked_canvas(self, event):
         if self.rendered_page:
