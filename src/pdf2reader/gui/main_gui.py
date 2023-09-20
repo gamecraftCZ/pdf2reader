@@ -16,7 +16,7 @@ class MainGUI(tk.Frame):
         tk.Frame.__init__(self, parent, *args, **kwargs)
 
         # Working variables
-        self.pdf_file = None
+        self.pdf_file: PdfFile or None = None
         self._setup_variables()
 
         # GUI stuff
@@ -41,7 +41,7 @@ class MainGUI(tk.Frame):
         self.menu_bar.add_cascade(label="File", menu=self.file_menu)
 
         self.file_menu.add_command(label="Open PDF", command=self._open_file_button)
-        self.file_menu.add_command(label="Save PDF", command=self._save_file_button)
+        self.file_menu.add_command(label="Save PDF", command=self._save_file_button, state=tk.DISABLED)
 
     def _create_content(self):
         self.pdf_grid_display = PdfPageGridDisplay(self, self.is_pdf_opened, page_click_callback=self._open_page_edit_window,
@@ -59,8 +59,8 @@ class MainGUI(tk.Frame):
             return
         Thread(target=self._open_file, args=(path,)).start()
 
-    def _open_file(self, path):
-        logger.debug(f"Opening pdf file: {path}")
+    def _open_file(self, path: str):
+        logger.info(f"Opening pdf file: {path}")
 
         try:
             if self.pdf_file is not None:  # To free up memory
@@ -77,10 +77,32 @@ class MainGUI(tk.Frame):
 
             self.pdf_grid_display.set_pdf_file(self.pdf_file)
 
+            self.file_menu.entryconfig(1, state=tk.NORMAL)
+
         except Exception as e:
             logger.exception(f"Failed to open pdf file: {path}")
             tk.messagebox.showerror("Error", "Failed to open pdf file: " + str(e))
 
 
     def _save_file_button(self):
-        print("TODO Save file")
+        if not self.pdf_file:
+            tk.messagebox.showerror("Error", "No PDF file opened, so none can be saved")
+            return
+        path = filedialog.asksaveasfilename(title="Save PDF file", filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")])
+        if not path:
+            return
+        Thread(target=self._save_file, args=(path,)).start()
+
+    def _save_file(self, path: str):
+        logger.info(f"Saving pdf file to: {path}")
+
+        try:
+            if not self.pdf_file:
+                tk.messagebox.showerror("Error", "No PDF file opened, so none can be saved")
+                return
+
+            self.pdf_file.save(path, progressbar=True)
+
+        except Exception as e:
+            logger.exception(f"Failed to save pdf file: {path}")
+            tk.messagebox.showerror("Error", "Failed to save pdf file: " + str(e))

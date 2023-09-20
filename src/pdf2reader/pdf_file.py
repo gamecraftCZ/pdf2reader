@@ -245,3 +245,19 @@ class PdfFile:
 
     def get_boxes(self, page_number: int) -> List[Box]:
         return [box for box in self.pages_parsed[page_number].get_boxes() if box is not None]
+
+    def save(self, path: str, progressbar: bool = False):
+        pdf = pikepdf.Pdf.new()
+        if progressbar:
+            from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
+            progress_bar_window = ProgressBarWindow("Saving PDF", f"Saving PDF...", 0, len(self.pages_parsed))
+        for page in self.pages_parsed:
+            pdf.pages.append(page.get_edited_pike_page())
+            if progressbar:
+                progress_bar_window.update_progress(len(pdf.pages))
+                progress_bar_window.update_message(f"Saving PDF... page {len(pdf.pages)}/{len(self.pages_parsed)}")
+
+        if progressbar:
+            progress_bar_window.close()
+
+        pdf.save(path)
