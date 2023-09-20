@@ -36,6 +36,7 @@ class PageRenderer(tk.Frame):
         self.rendered_page = None
         self.additional_info = None
         self.boxes = []
+        self._rendered_boxes = []
         self.default_click_callback = default_click_callback
 
         self.crop_selected_area = [tk.IntVar(), tk.IntVar(), tk.IntVar(), tk.IntVar()]
@@ -122,12 +123,13 @@ class PageRenderer(tk.Frame):
         self._render_boxes()
 
     def _render_boxes(self):
+        for rendered_box in self._rendered_boxes:
+            self.image_canvas.delete(rendered_box)
+        self._rendered_boxes = []
         for box in self.boxes:
-            self.image_canvas.delete(box)
-        for box in self.boxes:
-            self.image_canvas.create_rectangle(box.x0 * self.scale, box.y0 * self.scale,
-                                               box.x1 * self.scale, box.y1 * self.scale,
-                                               outline=box.color, width=2)
+            self._rendered_boxes.append(self.image_canvas.create_rectangle(box.x0 * self.scale, box.y0 * self.scale,
+                                                                      box.x1 * self.scale, box.y1 * self.scale,
+                                                                      outline=box.color, width=2))
 
     def reload_change_marks(self):
         if self.page:

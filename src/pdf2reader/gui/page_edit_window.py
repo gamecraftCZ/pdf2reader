@@ -94,7 +94,7 @@ class PageEditControls(tk.Frame):
 
         self.crop_button = tk.Button(self, text="Crop", command=self._crop_button_callback)
         self.cropping_label = tk.Label(self, text="Cropping...")
-        self.crop_done_button = tk.Button(self, text="Apply crop", command=self._crop_done_button_callback)
+        self.crop_done_button = tk.Button(self, text="", command=self._crop_done_button_callback)
 
         self.crop_button.pack(side=tk.RIGHT, expand=False)
 
@@ -103,6 +103,7 @@ class PageEditControls(tk.Frame):
         self.crop_done_button.pack(side=tk.RIGHT, expand=False)
         self.cropping_label.pack(side=tk.RIGHT, expand=False)
 
+        self.page_renderer.set_boxes([])
         self.page_renderer.crop_renderer.switch_to_cropping()
 
     def _crop_done_button_callback(self):
@@ -114,11 +115,14 @@ class PageEditControls(tk.Frame):
 
         if (0 == self.page_renderer.crop_selected_area[0].get() == self.page_renderer.crop_selected_area[2].get()
                 == self.page_renderer.crop_selected_area[1].get() == self.page_renderer.crop_selected_area[3].get()):
+            self.page_renderer.set_boxes(self.pdf_file.get_boxes(self.page_number))
             return
 
         # Opening select pages action window is non blocking!
         SelectPagesToActionWindow("Select pages to crop", self.pdf_file, save_callback=self._save_callback,
                                   checkbox_text="Crop", preselected_pages=[self.page_number])
+
+        self.master.destroy()
 
     def _save_callback(self, selected_pages: List[int]):
         x1, y1, x2, y2 = self.page_renderer.crop_selected_area[0].get(), self.page_renderer.crop_selected_area[1].get(), \
@@ -130,8 +134,6 @@ class PageEditControls(tk.Frame):
 
         if self.page_number in selected_pages:
             self.crop_already_exists = True
-        else:
-            pass  # TODO: Revert rendered page crop if this page is not the one cropped
 
         if self.reload_all_pages_callback:
             self.reload_all_pages_callback()
