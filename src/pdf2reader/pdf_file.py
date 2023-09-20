@@ -25,8 +25,6 @@ class PdfPage:
         self._original_rendered = self.render_page_as_image(self._page)
 
         self.sections = self._parse_sections(pikepdf.parse_content_stream(self._page))
-        # if "/Contents" in self._page.keys():
-        #     del self._page["/Contents"]
 
         self.original_crop_area = [self._page.mediabox[0], self._page.mediabox[1], self._page.mediabox[2], self._page.mediabox[3]]
 
@@ -169,19 +167,19 @@ class PdfPage:
         return instructions
 
     def get_original_pike_page(self) -> pikepdf.Page:
-        # if "/Contents" in self._page.keys():
-        #     del self._page["/Contents"]
+        if "/Contents" in self._page.keys():
+            del self._page["/Contents"]
 
         self._page.mediabox = self.original_crop_area
-        # self._page.contents_add(self._original_content)
+        self._page.contents_add(self._original_content)
         return self._page
 
     def get_edited_pike_page(self) -> pikepdf.Page:
-        # if "/Contents" in self._page.keys():
-        #     del self._page["/Contents"]
+        if "/Contents" in self._page.keys():
+            del self._page["/Contents"]
 
         self._page.mediabox = self.crop_area if self.crop_area else self.original_crop_area
-        # self._page.contents_add(pikepdf.unparse_content_stream(self._join_sections(self.sections)))
+        self._page.contents_add(pikepdf.unparse_content_stream(self._join_sections(self.sections)))
         return self._page
 
     def get_boxes(self) -> List[Box]:
