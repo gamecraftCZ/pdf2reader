@@ -1,9 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
+from typing import Callable
 
 
 class ProgressBarWindow:
-    def __init__(self, title: str, message: str, current_value: int, max_value: int, on_cancel_callback=None):
+    def __init__(self, title: str, message: str, current_value: int, max_value: int,
+                 on_cancel_callback: Callable = None, infinite_mode: bool = False):
         self.window = tk.Toplevel()
         self.window.grab_set()
 
@@ -14,8 +16,11 @@ class ProgressBarWindow:
         self.label = tk.Label(self.window, text=message)
         self.label.pack(pady=10)
         self.progress_bar = ttk.Progressbar(self.window, orient=tk.HORIZONTAL,
-                                            length=200, mode="determinate",
+                                            length=200, mode="determinate" if not infinite_mode else "indeterminate",
                                             value=current_value, maximum=max_value)
+        self.infinite_mode = infinite_mode
+        if infinite_mode:
+            self.progress_bar.start(10)
 
         self.progress_bar.pack(pady=10)
 

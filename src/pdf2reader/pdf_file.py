@@ -9,12 +9,14 @@ import pikepdf
 from PIL import Image
 
 from src.pdf2reader.data_structures import Box
+from src.pdf2reader.images_optimization import optimize_pdf_images, OptimizationOptions
 
 logger = logging.getLogger(__name__)
 
 
 class SectionGroup:
     pass  # TODO SectionGrouping
+
 
 class PdfPage:
     def __init__(self, page: pikepdf.Page):
@@ -26,7 +28,8 @@ class PdfPage:
 
         self.sections = self._parse_sections(pikepdf.parse_content_stream(self._page))
 
-        self.original_crop_area = [self._page.mediabox[0], self._page.mediabox[1], self._page.mediabox[2], self._page.mediabox[3]]
+        self.original_crop_area = [self._page.mediabox[0], self._page.mediabox[1], self._page.mediabox[2],
+                                   self._page.mediabox[3]]
 
         self.crop_area = None
 
@@ -41,12 +44,12 @@ class PdfPage:
         keep_in_output: bool
         section_group: SectionGroup or None
 
-
         class SectionType(Enum):
             TEXT = "text"
             OTHER = "other"
 
-        def __init__(self, typ: SectionType, content: List[pikepdf.ContentStreamInstruction], location: List[float] = None, additional: dict = None, keep_in_output: bool = True):
+        def __init__(self, typ: SectionType, content: List[pikepdf.ContentStreamInstruction],
+                     location: List[float] = None, additional: dict = None, keep_in_output: bool = True):
             self.typ = typ
             self.content = content
             self.keep_in_output = keep_in_output
@@ -60,8 +63,10 @@ class PdfPage:
                     return None
 
                 return Box(self.location[0] - 5, page_height - self.location[1],
-                           self.location[0] + self.additional["font_size"] * 1.2 + 5, page_height - self.location[1] - self.additional["font_size"] * 1.2 + 5,
-                           color="lightgreen" if self.keep_in_output else "red", on_click=lambda: print("Clicked on text box!"))
+                           self.location[0] + self.additional["font_size"] * 1.2 + 5,
+                           page_height - self.location[1] - self.additional["font_size"] * 1.2 + 5,
+                           color="lightgreen" if self.keep_in_output else "red",
+                           on_click=lambda: print("Clicked on text box!"))
 
         def __repr__(self):
             return f"Section(type={self.typ}, len={len(self.content)})"
@@ -109,7 +114,8 @@ class PdfPage:
 
                 if text_draw_location:
                     sections.append(PdfPage.Section(PdfPage.Section.SectionType.TEXT, current_section_content,
-                                                    text_draw_location, {"font": current_font[0], "font_size": current_font[1]}))
+                                                    text_draw_location,
+                                                    {"font": current_font[0], "font_size": current_font[1]}))
                 text_draw_location = None
                 current_section_content = []
                 current_section_type = PdfPage.Section.SectionType.OTHER
@@ -130,10 +136,10 @@ class PdfPage:
                 current_section_content.append(instruction)
                 if text_draw_location is None:
                     loc = (current_transformation_matrix @ current_text_matrix
-                                          @ np.array([[1, 0, 0], [0, 1, 0],
-                                                      [text_draw_relative_location[0],
-                                                       text_draw_relative_location[1],
-                                                       1.]], dtype=np.float64))
+                           @ np.array([[1, 0, 0], [0, 1, 0],
+                                       [text_draw_relative_location[0],
+                                        text_draw_relative_location[1],
+                                        1.]], dtype=np.float64))
                     text_draw_location = [loc[2][0], loc[2][1]]
 
             elif instruction.operator == pikepdf.Operator("Tm"):
@@ -227,11 +233,11 @@ class PdfFile:
             self.pages_parsed.append(PdfPage(page))
             if progressbar:
                 progress_bar_window.update_progress(len(self.pages_parsed))
-                progress_bar_window.update_message(f"Loading PDF... page {len(self.pages_parsed)}/{len(self.pdf.pages)}")
+                progress_bar_window.update_message(
+                    f"Loading PDF... page {len(self.pages_parsed)}/{len(self.pdf.pages)}")
 
         if progressbar:
             progress_bar_window.close()
-
 
     @staticmethod
     def open(path: str, progressbar: bool = False) -> "PdfFile":
@@ -267,4 +273,21 @@ class PdfFile:
         if progressbar:
             progress_bar_window.close()
 
+        self.pdf.remove_unreferenced_resources()
         self.pdf.save(path)
+
+    def optimize_images(self, images_quality: int = 30, should_resize_images: bool = True, progressbar: bool = False):
+        if progressbar:
+            from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
+            progress_bar_window = ProgressBarWindow("Optimizing images", f"Optimizing images...",
+                                                    0, len(self.pages_parsed), infinite_mode=True)
+
+        options = OptimizationOptions(
+            jpg_quality=images_quality,
+            png_quality=images_quality,
+            should_resize=should_resize_images,
+        )
+        optimize_pdf_images(self.pdf, options, gui_progressbar=progressbar)
+
+        if progressbar:
+            progress_bar_window.close()

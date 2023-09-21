@@ -4,6 +4,7 @@ from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
 
+from src.pdf2reader.gui.image_optimization_window import ImageOptimizationWindow
 from src.pdf2reader.gui.page_edit_window import PageEditWindow
 from src.pdf2reader.gui.pdf_page_grid_display import PdfPageGridDisplay
 from src.pdf2reader.pdf_file import PdfFile, PdfPage
@@ -31,7 +32,6 @@ class MainGUI(tk.Frame):
         self.page_count = tk.IntVar()
         self.is_pdf_opened = tk.BooleanVar()
 
-
     def _create_menu(self):
         self.menu_bar = tk.Menu(self)
         self.root.configure(menu=self.menu_bar)
@@ -43,9 +43,18 @@ class MainGUI(tk.Frame):
         self.file_menu.add_command(label="Open PDF", command=self._open_file_button)
         self.file_menu.add_command(label="Save PDF", command=self._save_file_button, state=tk.DISABLED)
 
+        # Edit menu
+        self.edit_menu = tk.Menu(self.menu_bar, tearoff=False)
+        self.menu_bar.add_cascade(label="Edit", menu=self.edit_menu)
+
+        self.edit_menu.add_command(label="Optimize images", command=self._optimize_images_button, state=tk.DISABLED)
+
     def _create_content(self):
-        self.pdf_grid_display = PdfPageGridDisplay(self, self.is_pdf_opened, page_click_callback=self._open_page_edit_window,
-                                                   create_page_additional_info=lambda master, page, page_number: tk.Label(master, text=f"{page_number + 1}"))
+        self.pdf_grid_display = PdfPageGridDisplay(self, self.is_pdf_opened,
+                                                   page_click_callback=self._open_page_edit_window,
+                                                   create_page_additional_info=lambda master, page,
+                                                                                      page_number: tk.Label(master,
+                                                                                                            text=f"{page_number + 1}"))
         self.pdf_grid_display.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
 
     def _open_page_edit_window(self, page: PdfPage, page_number: int):
@@ -54,7 +63,8 @@ class MainGUI(tk.Frame):
                        reload_all_pages_callback=lambda: self.pdf_grid_display.reload_all_pages_change_marks())
 
     def _open_file_button(self):
-        path = filedialog.askopenfilename(title="Open PDF file", filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")])
+        path = filedialog.askopenfilename(title="Open PDF file",
+                                          filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")])
         if not path:
             return
         Thread(target=self._open_file, args=(path,)).start()
@@ -78,17 +88,21 @@ class MainGUI(tk.Frame):
             self.pdf_grid_display.set_pdf_file(self.pdf_file)
 
             self.file_menu.entryconfig(1, state=tk.NORMAL)
+            self.edit_menu.entryconfig(0, state=tk.NORMAL)
+
+            if tk.messagebox.askyesno("Image optimization", "Optimize images in PDF file?"):
+                self._optimize_images_button()
 
         except Exception as e:
             logger.exception(f"Failed to open pdf file: {path}")
             tk.messagebox.showerror("Error", "Failed to open pdf file: " + str(e))
 
-
     def _save_file_button(self):
         if not self.pdf_file:
             tk.messagebox.showerror("Error", "No PDF file opened, so none can be saved")
             return
-        path = filedialog.asksaveasfilename(title="Save PDF file", filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")])
+        path = filedialog.asksaveasfilename(title="Save PDF file",
+                                            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")])
         if not path:
             return
         Thread(target=self._save_file, args=(path,)).start()
@@ -106,3 +120,29 @@ class MainGUI(tk.Frame):
         except Exception as e:
             logger.exception(f"Failed to save pdf file: {path}")
             tk.messagebox.showerror("Error", "Failed to save pdf file: " + str(e))
+
+    def _optimize_images_button(self):
+        if not self.pdf_file:
+            tk.messagebox.showerror("Error", "No PDF file opened, so none can be optimized")
+            return
+
+        opt_fn = lambda image_quality, should_resize_images: Thread(target=self._optimize_images,
+                                                                    args=(image_quality, should_resize_images,)).start()
+
+        ImageOptimizationWindow(opt_fn)
+
+    def _optimize_images(self, image_quality: int = 30, should_resize_images: bool = True):
+        logger.info(f"Optimizing images in pdf file")
+
+        try:
+            if not self.pdf_file:
+                tk.messagebox.showerror("Error", "No PDF file opened, so none can be optimized")
+                return
+
+            self.pdf_file.optimize_images(images_quality=image_quality, should_resize_images=should_resize_images,
+                                          progressbar=True)
+            tk.messagebox.showinfo("Images optimized", "Images optimized")
+
+        except Exception as e:
+            logger.exception(f"Failed to optimize images in pdf file")
+            tk.messagebox.showerror("Error", "Failed to optimize images in pdf file: " + str(e))

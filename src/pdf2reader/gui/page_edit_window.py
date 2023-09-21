@@ -94,7 +94,7 @@ class PageEditControls(tk.Frame):
 
         self.crop_button = tk.Button(self, text="Crop", command=self._crop_button_callback)
         self.cropping_label = tk.Label(self, text="Cropping...")
-        self.crop_done_button = tk.Button(self, text="", command=self._crop_done_button_callback)
+        self.crop_done_button = tk.Button(self, text="Apply crop", command=self._crop_done_button_callback)
 
         self.crop_button.pack(side=tk.RIGHT, expand=False)
 
