@@ -45,6 +45,7 @@ class ImageOptimizationWindow:
 
     def _optimize_button(self):
         self._optimize_callback(self.image_quality.get(), self.should_resize_images.get())
+        self.close()
 
 
     def __del__(self):

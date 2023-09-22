@@ -14,7 +14,7 @@ import threading
 from collections import defaultdict
 from os import fspath
 from pathlib import Path
-from typing import Callable, Iterator, MutableSet, NamedTuple, NewType, Sequence
+from typing import Callable, Iterator, MutableSet, NamedTuple, NewType, Sequence, List, Tuple
 from zlib import compress
 
 import img2pdf
@@ -689,8 +689,12 @@ class OptimizationOptions:
         self.jobs = 1
         self.black_and_white = False
 
-def optimize_pdf_images(pike_pdf: pikepdf.Pdf, options: OptimizationOptions, gui_progressbar: bool = False,
-                        executor: Executor = DEFAULT_EXECUTOR) -> None:
+def extract_pdf_images(pike_pdf: pikepdf.Pdf, folder: Path or str) -> Tuple[List[int], List[int]]:
+    jpegs, pngs = extract_images_generic(pike_pdf, Path(folder), OptimizationOptions())
+    return jpegs, pngs
+
+def optimize_pdf_images(pike_pdf: pikepdf.Pdf, images: Tuple[List[int], List[int]], tmpdir: Path or str,
+                        options: OptimizationOptions, executor: Executor = DEFAULT_EXECUTOR) -> None:
     """Optimize images in a PDF file."""
 
     if options.should_resize:
@@ -701,14 +705,12 @@ def optimize_pdf_images(pike_pdf: pikepdf.Pdf, options: OptimizationOptions, gui
 
     options.jobs = 1
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        root = Path(tmpdir) / 'images'
-        root.mkdir(exist_ok=True)
-
-        jpegs, pngs = extract_images_generic(pike_pdf, root, options)
-        transcode_jpegs(pike_pdf, jpegs, root, options, executor)
-        deflate_jpegs(pike_pdf, root, options, executor)
-        transcode_pngs(pike_pdf, pngs, png_name, root, options, executor)
+    tmpdir = Path(tmpdir)
+    jpegs, pngs = images
+    # jpegs, pngs = extract_images_generic(pike_pdf, root, options)
+    transcode_jpegs(pike_pdf, jpegs, tmpdir, options, executor)
+    deflate_jpegs(pike_pdf, tmpdir, options, executor)
+    transcode_pngs(pike_pdf, pngs, png_name, tmpdir, options, executor)
 
 
 def optimize(

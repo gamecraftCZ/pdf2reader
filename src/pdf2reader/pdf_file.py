@@ -1,6 +1,7 @@
 import io
 import logging
 from enum import Enum
+from tempfile import TemporaryDirectory
 from typing import List
 
 import fitz
@@ -9,7 +10,8 @@ import pikepdf
 from PIL import Image
 
 from src.pdf2reader.data_structures import Box
-from src.pdf2reader.images_optimization import optimize_pdf_images, OptimizationOptions
+from src.pdf2reader.images_optimization import optimize_pdf_images, OptimizationOptions, extract_images, \
+    extract_pdf_images
 
 logger = logging.getLogger(__name__)
 
@@ -224,6 +226,8 @@ class PdfFile:
         self.path = path
         self.pdf = pdf
 
+        self.temp_dir = TemporaryDirectory()
+
         if progressbar:
             from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
             progress_bar_window = ProgressBarWindow("Loading PDF", f"Loading PDF...", 0, len(self.pdf.pages))
@@ -236,8 +240,14 @@ class PdfFile:
                 progress_bar_window.update_message(
                     f"Loading PDF... page {len(self.pages_parsed)}/{len(self.pdf.pages)}")
 
+        # Extract images for further optimization
+        self.images = extract_pdf_images(self.pdf, self.temp_dir.name)
+
         if progressbar:
             progress_bar_window.close()
+
+    def __del__(self):
+        self.temp_dir.cleanup()
 
     @staticmethod
     def open(path: str, progressbar: bool = False) -> "PdfFile":
@@ -287,7 +297,7 @@ class PdfFile:
             png_quality=images_quality,
             should_resize=should_resize_images,
         )
-        optimize_pdf_images(self.pdf, options, gui_progressbar=progressbar)
+        optimize_pdf_images(self.pdf, self.images, self.temp_dir.name, options)
 
         if progressbar:
             progress_bar_window.close()
