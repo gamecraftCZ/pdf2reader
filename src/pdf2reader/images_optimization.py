@@ -4,7 +4,6 @@
 
 """Post-processing image optimization of OCR PDFs."""
 
-
 from __future__ import annotations
 
 import logging
@@ -43,7 +42,6 @@ log = logging.getLogger(__name__)
 DEFAULT_JPEG_QUALITY = 25
 DEFAULT_PNG_QUALITY = 20
 
-
 Xref = NewType('Xref', int)
 
 
@@ -70,7 +68,7 @@ def jpg_name(root: Path, xref: Xref) -> Path:
 
 
 def extract_image_filter(
-    pike: Pdf, root: Path, image: Stream, xref: Xref
+        pike: Pdf, root: Path, image: Stream, xref: Xref
 ) -> tuple[PdfImage, tuple[Name, Object]] | None:
     """Determine if an image is extractable."""
     del pike  # unused args
@@ -91,11 +89,11 @@ def extract_image_filter(
         first_filtdp = pim.filter_decodeparms[0]
         second_filtdp = pim.filter_decodeparms[1]
         if (
-            len(pim.filter_decodeparms) == 2
-            and first_filtdp[0] == Name.FlateDecode
-            and first_filtdp[1].get(Name.Predictor, 1) == 1
-            and second_filtdp[0] == Name.DCTDecode
-            and not second_filtdp[1]
+                len(pim.filter_decodeparms) == 2
+                and first_filtdp[0] == Name.FlateDecode
+                and first_filtdp[1].get(Name.Predictor, 1) == 1
+                and second_filtdp[0] == Name.DCTDecode
+                and not second_filtdp[1]
         ):
             log.debug(
                 f"xref {xref}: found image compressed as /FlateDecode /DCTDecode, "
@@ -128,7 +126,7 @@ def extract_image_filter(
 
 
 def extract_image_jbig2(
-    *, pike: Pdf, root: Path, image: Stream, xref: Xref, options
+        *, pike: Pdf, root: Path, image: Stream, xref: Xref, options
 ) -> XrefExt | None:
     """Extract an image, saving it as a JBIG2 file."""
     del options  # unused arg
@@ -139,9 +137,9 @@ def extract_image_jbig2(
     pim, filtdp = result
 
     if (
-        pim.bits_per_component == 1
-        and filtdp[0] != Name.JBIG2Decode
-        and jbig2enc.available()
+            pim.bits_per_component == 1
+            and filtdp[0] != Name.JBIG2Decode
+            and jbig2enc.available()
     ):
         # Save any colorspace associated with the image, so that we
         # will export a pure 1-bit PNG with no palette or ICC profile.
@@ -170,7 +168,7 @@ def extract_image_jbig2(
 
 
 def extract_image_generic(
-    *, pike: Pdf, root: Path, image: Stream, xref: Xref, options
+        *, pike: Pdf, root: Path, image: Stream, xref: Xref, options
 ) -> XrefExt | None:
     """Generic image extraction."""
     result = extract_image_filter(pike, root, image, xref)
@@ -182,7 +180,7 @@ def extract_image_generic(
     if pim.bits_per_component == 1:
         return None
 
-    if filtdp[0] == Name.DCTDecode:# and options.optimize >= 2:
+    if filtdp[0] == Name.DCTDecode:  # and options.optimize >= 2:
         # This is a simple heuristic derived from some training data, that has
         # about a 70% chance of guessing whether the JPEG is high quality,
         # and possibly recompressible, or not. The number itself doesn't mean
@@ -200,9 +198,9 @@ def extract_image_generic(
             return None
         return XrefExt(xref, ext)
     elif (
-        pim.indexed
-        and pim.colorspace in pim.SIMPLE_COLORSPACES
-        # and options.optimize >= 3
+            pim.indexed
+            and pim.colorspace in pim.SIMPLE_COLORSPACES
+            # and options.optimize >= 3
     ):
         # Try to improve on indexed images - these are far from low hanging
         # fruit in most cases
@@ -218,10 +216,10 @@ def extract_image_generic(
             return None
         return XrefExt(xref, '.png')
     elif (
-        not pim.indexed
-        and pim.colorspace == Name.ICCBased
-        and pim.bits_per_component == 1
-        and not options.jbig2_lossy
+            not pim.indexed
+            and pim.colorspace == Name.ICCBased
+            and pim.bits_per_component == 1
+            and not options.jbig2_lossy
     ):
         # We can losslessly optimize 1-bit images to CCITT or JBIG2 without
         # paying any attention to the ICC profile, provided we're not doing
@@ -233,13 +231,13 @@ def extract_image_generic(
 
 
 def _find_image_xrefs_container(
-    pdf: Pdf,
-    container: Object,
-    pageno: int,
-    include_xrefs: MutableSet[Xref],
-    exclude_xrefs: MutableSet[Xref],
-    pageno_for_xref: dict[Xref, int],
-    depth: int = 0,
+        pdf: Pdf,
+        container: Object,
+        pageno: int,
+        include_xrefs: MutableSet[Xref],
+        exclude_xrefs: MutableSet[Xref],
+        pageno_for_xref: dict[Xref, int],
+        depth: int = 0,
 ):
     """Find all image XRefs in a page or Form XObject and add to the include/exclude sets."""
     if depth > 10:
@@ -292,10 +290,10 @@ def _find_image_xrefs(pdf: Pdf):
 
 
 def extract_images(
-    pike: Pdf,
-    root: Path,
-    options,
-    extract_fn: Callable[..., XrefExt | None],
+        pike: Pdf,
+        root: Path,
+        options,
+        extract_fn: Callable[..., XrefExt | None],
 ) -> Iterator[tuple[int, XrefExt]]:
     """Extract image using extract_fn.
 
@@ -327,38 +325,44 @@ def extract_images(
         else:
             if result:
                 _, ext = result
-                yield pageno_for_xref[xref], XrefExt(xref, ext)
+                yield pageno_for_xref[xref], XrefExt(xref, ext), True
+            else:
+                yield pageno_for_xref[xref], XrefExt(xref, '.unknown'), False
 
 
 def extract_images_generic(
-    pike: Pdf, root: Path, options
-) -> tuple[list[Xref], list[Xref]]:
+        pike: Pdf, root: Path, options
+) -> tuple[list[Xref], list[Xref], list[Xref]]:
     """Extract any >=2bpp image we think we can improve."""
     jpegs = []
     pngs = []
-    for _, xref_ext in extract_images(pike, root, options, extract_image_generic):
+    others = []
+    for _, xref_ext, export_successful in extract_images(pike, root, options, extract_image_generic):
         log.debug('%s', xref_ext)
-        if xref_ext.ext == '.png':
+        if xref_ext.ext == '.png' and export_successful:
             pngs.append(xref_ext.xref)
-        elif xref_ext.ext == '.jpg':
+        elif xref_ext.ext == '.jpg' and export_successful:
             jpegs.append(xref_ext.xref)
-    log.debug(f"Optimizable images: JPEGs: {len(jpegs)} PNGs: {len(pngs)}")
-    return jpegs, pngs
+        else:
+            others.append(xref_ext.xref)
+    log.debug(f"Optimizable images: JPEGs: {len(jpegs)} PNGs: {len(pngs)}. Other images: {len(others)}")
+    return jpegs, pngs, others
 
 
 def extract_images_jbig2(pike: Pdf, root: Path, options) -> dict[int, list[XrefExt]]:
     """Extract any bitonal image that we think we can improve as JBIG2."""
     jbig2_groups = defaultdict(list)
-    for pageno, xref_ext in extract_images(pike, root, options, extract_image_jbig2):
-        group = pageno // options.jbig2_page_group_size
-        jbig2_groups[group].append(xref_ext)
+    for pageno, xref_ext, export_successful in extract_images(pike, root, options, extract_image_jbig2):
+        if export_successful:
+            group = pageno // options.jbig2_page_group_size
+            jbig2_groups[group].append(xref_ext)
 
     log.debug(f"Optimizable images: JBIG2 groups: {len(jbig2_groups)}")
     return jbig2_groups
 
 
 def _produce_jbig2_images(
-    jbig2_groups: dict[int, list[XrefExt]], root: Path, options, executor: Executor
+        jbig2_groups: dict[int, list[XrefExt]], root: Path, options, executor: Executor
 ) -> None:
     """Produce JBIG2 images from their groups."""
 
@@ -405,11 +409,11 @@ def _produce_jbig2_images(
 
 
 def convert_to_jbig2(
-    pike: Pdf,
-    jbig2_groups: dict[int, list[XrefExt]],
-    root: Path,
-    options,
-    executor: Executor,
+        pike: Pdf,
+        jbig2_groups: dict[int, list[XrefExt]],
+        root: Path,
+        options,
+        executor: Executor,
 ) -> None:
     """Convert images to JBIG2 and insert into PDF.
 
@@ -474,7 +478,7 @@ def _optimize_jpeg(args: tuple[Xref, Path, Path, int, bool, int, int, bool]) -> 
 
 
 def transcode_jpegs(
-    pike: Pdf, jpegs: Sequence[Xref], root: Path, options, executor: Executor
+        pike: Pdf, jpegs: Sequence[Xref], root: Path, options, executor: Executor
 ) -> None:
     """Optimize JPEGs according to optimization settings."""
 
@@ -509,14 +513,14 @@ def transcode_jpegs(
 
 
 def _find_deflatable_jpeg(
-    *, pike: Pdf, root: Path, image: Stream, xref: Xref, options
+        *, pike: Pdf, root: Path, image: Stream, xref: Xref, options
 ) -> XrefExt | None:
     result = extract_image_filter(pike, root, image, xref)
     if result is None:
         return None
     _pim, filtdp = result
 
-    if filtdp[0] == Name.DCTDecode and not filtdp[1]:# and options.optimize >= 1:
+    if filtdp[0] == Name.DCTDecode and not filtdp[1]:  # and options.optimize >= 1:
         return XrefExt(xref, '.memory')
 
     return None
@@ -544,12 +548,13 @@ def deflate_jpegs(pike: Pdf, root: Path, options, executor: Executor) -> None:
     images.
     """
     jpegs = []
-    for _pageno, xref_ext in extract_images(pike, root, options, _find_deflatable_jpeg):
-        xref = xref_ext.xref
-        log.debug(f'xref {xref}: marking this JPEG as deflatable')
-        jpegs.append(xref)
+    for _pageno, xref_ext, export_successful in extract_images(pike, root, options, _find_deflatable_jpeg):
+        if export_successful:
+            xref = xref_ext.xref
+            log.debug(f'xref {xref}: marking this JPEG as deflatable')
+            jpegs.append(xref)
 
-    complevel = 9 #if options.optimize == 3 else 6
+    complevel = 9  # if options.optimize == 3 else 6
 
     # Our calls to xobj.write() in finish() need coordination
     lock = threading.Lock()
@@ -579,6 +584,12 @@ def deflate_jpegs(pike: Pdf, root: Path, options, executor: Executor) -> None:
         task_arguments=deflate_args(),
         task_finished=finish,
     )
+
+
+def remove_images(pike: Pdf, images: Sequence[Xref], options) -> None:
+    for xref in images:
+        xobj = pike.get_object(xref, 0)
+        xobj.write(b'')
 
 
 def _transcode_png(pike: Pdf, filename: Path, xref: Xref) -> bool:
@@ -624,16 +635,16 @@ def _transcode_png(pike: Pdf, filename: Path, xref: Xref) -> bool:
 
 # TODO black and white for transcode_pngs
 def transcode_pngs(
-    pike: Pdf,
-    images: Sequence[Xref],
-    image_name_fn: Callable[[Path, Xref], Path],
-    root: Path,
-    options,
-    executor,
+        pike: Pdf,
+        images: Sequence[Xref],
+        image_name_fn: Callable[[Path, Xref], Path],
+        root: Path,
+        options,
+        executor,
 ) -> None:
     """Apply lossy transcoding to PNGs."""
     modified: MutableSet[Xref] = set()
-    if True: #options.optimize >= 2:
+    if True:  # options.optimize >= 2:
         png_quality = (
             max(10, options.png_quality - 10),
             min(100, options.png_quality + 10),
@@ -673,27 +684,31 @@ DEFAULT_EXECUTOR = SerialExecutor()
 executor: Executor = DEFAULT_EXECUTOR,
 
 
-
 class OptimizationOptions:
-    def __init__(self, jpg_quality: int = 30, png_quality: int = 30, should_resize: bool = False, max_image_height: int = 999999, max_image_width: int = 999999):
+    def __init__(self, jpg_quality: int = 30, png_quality: int = 30, should_resize: bool = False,
+                 should_remove_images: bool = False, max_image_height: int = 999999, max_image_width: int = 999999):
         self.jpeg_quality = jpg_quality
         self.png_quality = png_quality
         self.should_resize = should_resize
+        self.should_remove_images = should_remove_images
         self.target_height = max_image_height
         self.target_width = max_image_width
 
-        self.jbig2_page_group_size = 0
+        self.jbig2_page_group_size = 1
         self.jbig2_lossy = False
         self.quiet = True
         self.progress_bar = False
         self.jobs = 1
         self.black_and_white = False
 
-def extract_pdf_images(pike_pdf: pikepdf.Pdf, folder: Path or str) -> Tuple[List[int], List[int]]:
-    jpegs, pngs = extract_images_generic(pike_pdf, Path(folder), OptimizationOptions())
-    return jpegs, pngs
 
-def optimize_pdf_images(pike_pdf: pikepdf.Pdf, images: Tuple[List[int], List[int]], tmpdir: Path or str,
+def extract_pdf_images(pike_pdf: pikepdf.Pdf, folder: Path or str) -> Tuple[List[Xref], List[Xref], List[Xref]]:
+    opts = OptimizationOptions()
+    jpegs, pngs, others = extract_images_generic(pike_pdf, Path(folder), opts)
+    return jpegs, pngs, others
+
+
+def optimize_pdf_images(pike_pdf: pikepdf.Pdf, images: Tuple[List[int], List[int], List[int]], tmpdir: Path or str,
                         options: OptimizationOptions, executor: Executor = DEFAULT_EXECUTOR) -> None:
     """Optimize images in a PDF file."""
 
@@ -706,19 +721,23 @@ def optimize_pdf_images(pike_pdf: pikepdf.Pdf, images: Tuple[List[int], List[int
     options.jobs = 1
 
     tmpdir = Path(tmpdir)
-    jpegs, pngs = images
-    # jpegs, pngs = extract_images_generic(pike_pdf, root, options)
-    transcode_jpegs(pike_pdf, jpegs, tmpdir, options, executor)
-    deflate_jpegs(pike_pdf, tmpdir, options, executor)
-    transcode_pngs(pike_pdf, pngs, png_name, tmpdir, options, executor)
+    jpegs, pngs, others = images
+
+    if options.should_remove_images:
+        remove_images(pike_pdf, jpegs + pngs + others, options)
+
+    else:
+        transcode_jpegs(pike_pdf, jpegs, tmpdir, options, executor)
+        deflate_jpegs(pike_pdf, tmpdir, options, executor)
+        transcode_pngs(pike_pdf, pngs, png_name, tmpdir, options, executor)
 
 
 def optimize(
-    input_file: Path,
-    output_file: Path,
-    context,
-    save_settings,
-    executor: Executor = DEFAULT_EXECUTOR,
+        input_file: Path,
+        output_file: Path,
+        context,
+        save_settings,
+        executor: Executor = DEFAULT_EXECUTOR,
 ) -> Path:
     """Optimize images in a PDF file."""
     options = context.options
@@ -727,9 +746,9 @@ def optimize(
     #     return output_file
 
     if options.jpeg_quality == 0:
-        options.jpeg_quality = DEFAULT_JPEG_QUALITY# if options.optimize < 3 else 40
+        options.jpeg_quality = DEFAULT_JPEG_QUALITY  # if options.optimize < 3 else 40
     if options.png_quality == 0:
-        options.png_quality = DEFAULT_PNG_QUALITY# if options.optimize < 3 else 30
+        options.png_quality = DEFAULT_PNG_QUALITY  # if options.optimize < 3 else 30
     if options.jbig2_page_group_size == 0:
         options.jbig2_page_group_size = 10 if options.jbig2_lossy else 1
 
@@ -791,7 +810,7 @@ def main(infile, outfile, jobs=1):
         target_width = 999999
 
         def __init__(
-            self, input_file, jobs, jpeg_quality, png_quality, jb2lossy, black_and_white, should_resize
+                self, input_file, jobs, jpeg_quality, png_quality, jb2lossy, black_and_white, should_resize
         ):
             self.input_file = input_file
             self.jobs = jobs

@@ -126,12 +126,14 @@ class MainGUI(tk.Frame):
             tk.messagebox.showerror("Error", "No PDF file opened, so none can be optimized")
             return
 
-        opt_fn = lambda image_quality, should_resize_images: Thread(target=self._optimize_images,
-                                                                    args=(image_quality, should_resize_images,)).start()
+        opt_fn = lambda image_quality, should_resize_images, should_remove_images: Thread(target=self._optimize_images,
+                                                                                          args=(image_quality,
+                                                                                                should_resize_images,
+                                                                                                should_remove_images)).start()
 
         ImageOptimizationWindow(opt_fn)
 
-    def _optimize_images(self, image_quality: int = 30, should_resize_images: bool = True):
+    def _optimize_images(self, image_quality: int = 30, should_resize_images: bool = True, should_remove_images: bool = False):
         logger.info(f"Optimizing images in pdf file")
 
         try:
@@ -140,7 +142,7 @@ class MainGUI(tk.Frame):
                 return
 
             self.pdf_file.optimize_images(images_quality=image_quality, should_resize_images=should_resize_images,
-                                          progressbar=True)
+                                          should_remove_images=should_remove_images, progressbar=True)
             tk.messagebox.showinfo("Images optimized", "Images optimized")
 
         except Exception as e:

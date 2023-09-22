@@ -10,8 +10,7 @@ import pikepdf
 from PIL import Image
 
 from src.pdf2reader.data_structures import Box
-from src.pdf2reader.images_optimization import optimize_pdf_images, OptimizationOptions, extract_images, \
-    extract_pdf_images
+from src.pdf2reader.images_optimization import optimize_pdf_images, OptimizationOptions, extract_pdf_images
 
 logger = logging.getLogger(__name__)
 
@@ -286,16 +285,20 @@ class PdfFile:
         self.pdf.remove_unreferenced_resources()
         self.pdf.save(path)
 
-    def optimize_images(self, images_quality: int = 30, should_resize_images: bool = True, progressbar: bool = False):
+    def optimize_images(self, images_quality: int = 30, should_resize_images: bool = True,
+                        should_remove_images: bool = False, progressbar: bool = False):
         if progressbar:
             from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
             progress_bar_window = ProgressBarWindow("Optimizing images", f"Optimizing images...",
                                                     0, len(self.pages_parsed), infinite_mode=True)
 
+        logger.info(f"Optimizing images with params quality={images_quality}, resize={should_resize_images}, "
+                    f"remove={should_remove_images}")
         options = OptimizationOptions(
             jpg_quality=images_quality,
             png_quality=images_quality,
             should_resize=should_resize_images,
+            should_remove_images=should_remove_images
         )
         optimize_pdf_images(self.pdf, self.images, self.temp_dir.name, options)
 
