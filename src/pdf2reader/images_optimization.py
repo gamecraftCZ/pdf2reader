@@ -708,7 +708,7 @@ def extract_pdf_images(pike_pdf: pikepdf.Pdf, folder: Path or str) -> Tuple[List
     return jpegs, pngs, others
 
 
-def optimize_pdf_images(pike_pdf: pikepdf.Pdf, images: Tuple[List[int], List[int], List[int]], tmpdir: Path or str,
+def optimize_pdf_images(pike_pdf: pikepdf.Pdf, images: Tuple[List[Xref], List[Xref], List[Xref]], tmpdir: Path or str,
                         options: OptimizationOptions, executor: Executor = DEFAULT_EXECUTOR) -> None:
     """Optimize images in a PDF file."""
 

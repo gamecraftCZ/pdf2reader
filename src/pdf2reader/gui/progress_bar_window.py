@@ -40,6 +40,13 @@ class ProgressBarWindow:
     def update_progress(self, new_progress: int) -> None:
         self.progress_bar.config(value=new_progress)
 
+    def update_mode_infinite(self, infinite: bool = False) -> None:
+        self.progress_bar.configure(mode="determinate" if not infinite else "indeterminate")
+        if infinite:
+            self.progress_bar.start(10)
+        else:
+            self.progress_bar.stop()
+
     def __del__(self):
         self.close()
 
