@@ -104,6 +104,7 @@ class PdfPage:
         current_font = ("default_font", 11)  # Some random default value  (name, size)
         text_draw_relative_location = [0, 0]
         text_draw_location = None
+        text = []
 
         for instruction in parsed_stream:
             if instruction.operator == pikepdf.Operator("BT"):  # Begin text section
@@ -118,6 +119,7 @@ class PdfPage:
                 current_text_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
                 text_draw_relative_location = [0, 0]
                 text_draw_location = None
+                text = []
 
             elif instruction.operator == pikepdf.Operator("ET"):  # End text section
                 current_section_content.append(instruction)
@@ -128,7 +130,7 @@ class PdfPage:
                 if text_draw_location:
                     sections.append(Section(Section.SectionType.TEXT, current_section_content, page_number,
                                             text_draw_location,
-                                            {"font": current_font[0], "font_size": current_font[1]}))
+                                            {"font": current_font[0], "font_size": current_font[1], "text": text}))
                 text_draw_location = None
                 current_section_content = []
                 current_section_type = Section.SectionType.OTHER
@@ -147,13 +149,17 @@ class PdfPage:
                   or instruction.operator == pikepdf.Operator("TJ")):  # Draw text
                 # For now, we just save the text start position and draw the box there
                 current_section_content.append(instruction)
+                loc = (current_transformation_matrix @ current_text_matrix
+                       @ np.array([[1, 0, 0], [0, 1, 0],
+                                   [text_draw_relative_location[0],
+                                    text_draw_relative_location[1],
+                                    1.]], dtype=np.float64))
                 if text_draw_location is None:
-                    loc = (current_transformation_matrix @ current_text_matrix
-                           @ np.array([[1, 0, 0], [0, 1, 0],
-                                       [text_draw_relative_location[0],
-                                        text_draw_relative_location[1],
-                                        1.]], dtype=np.float64))
                     text_draw_location = [loc[2][0], loc[2][1]]
+
+                # Append text to section text
+                text.append({"content": instruction.operands[0], "location": [loc[2][0], loc[2][1]],
+                             "font": current_font[0], "font_size": current_font[1]})
 
             elif instruction.operator == pikepdf.Operator("Tm"):
                 current_section_content.append(instruction)
@@ -238,11 +244,16 @@ class PdfFile:
         self.path = path
         self.pdf = pdf
 
+        self.temp_dir = TemporaryDirectory()
+
+        # Matching params
         self.match_ahead_pages = 8
         self.match_threshold = 0.98
         self.min_group_size = 5
 
-        self.temp_dir = TemporaryDirectory()
+        self.max_relative_font_size_diff = 0.1
+        self.max_absolute_location_diff = 20
+
 
         if progressbar:
             from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
@@ -277,7 +288,6 @@ class PdfFile:
             self.progress_bar_window.update_message("Matching similar sections...")
             self.progress_bar_window.update_progress(0)
         for page_index in range(len(self.pages_parsed)):
-            logger.debug(f"MATCHING page {page_index + 1}/{len(self.pages_parsed)}")
             if progressbar:
                 self.progress_bar_window.update_progress(page_index + 1)
                 self.progress_bar_window.update_message(
@@ -301,13 +311,12 @@ class PdfFile:
                     section.section_group.last_matched_page_number = max(section.section_group.last_matched_page_number,
                                                                          next_page_index)
                     next_page = self.pages_parsed[next_page_index]
-                    similarities = PdfFile._get_section_to_sections_similarities(section.section_group.master_section,
+                    similarities = self._get_section_to_sections_similarities(section.section_group.master_section,
                                                                                  next_page.sections)
                     if similarities:
                         most_similar = np.argmax(similarities)
                         if similarities[most_similar] > self.match_threshold:
                             next_page_section = next_page.sections[most_similar]
-                            logger.debug(f"Found similar section with similarity {similarities[most_similar]}")
                             section.section_group.sections.append(next_page_section)
                             next_page_section.section_group = section.section_group
 
@@ -317,30 +326,73 @@ class PdfFile:
         self.sections_groups = [group for group in self.sections_groups if len(group.sections) > self.min_group_size]
         logger.debug(f"Filtered groups. New count: {len(self.sections_groups)}")
 
-    @staticmethod
-    def _get_section_similarity(section1: Section, section2: Section) -> float:
+    def _get_section_similarity(self, section1: Section, section2: Section) -> float:
         """ 0 is completely different, 1 is completely the same """
         if section1.typ != section2.typ:
             return 0
 
-        if section1.typ == Section.SectionType.TEXT:
-            if section1.additional["font"] != section2.additional["font"]:
+        location_x_diff = abs(section1.location[0] - section1.location[0])
+        location_y_diff = abs(section1.location[1] - section1.location[1])
+        if (location_x_diff > self.max_absolute_location_diff
+                or location_y_diff > self.max_absolute_location_diff):
+            return 0
+
+        if section1.typ == Section.SectionType.TEXT == section2.typ:
+            # section.additional["text"] = {"content", "location", "font", "font_size"}[]
+            if len(section1.additional["text"]) != len(section2.additional["text"]):
                 return 0
 
-            # return 1 - abs(section1.additional["font_size"] - section2.additional["font_size"]) / 100
-            # Matching using https://docs.python.org/3/library/difflib.html
-            # TODO Faster and Smarter matching!
-            diff = SequenceMatcher(None, section1.get_content_as_string(),
-                                   section2.get_content_as_string()).quick_ratio()  # For speed use quick_ratio()
-            return diff
+            texts_similarities = [1]
+            for txt1, txt2 in zip(section1.additional["text"], section2.additional["text"]):
+                # Non matching fonts -> non matching section
+                if txt1["font"] != txt2["font"]:
+                    return 0
+
+                # Non matching location -> non matching section
+                location_x_diff = abs(txt1["location"][0] - txt2["location"][0])
+                location_y_diff = abs(txt1["location"][1] - txt2["location"][1])
+                if (location_x_diff > self.max_absolute_location_diff
+                        or location_y_diff > self.max_absolute_location_diff):
+                    return 0
+                location_diff_similarity_modifier = 1 - ((location_x_diff + location_y_diff) / (2 * self.max_absolute_location_diff))
+
+                # Non matching font sizes -> non matching section
+                font_size_norm_diff = (abs(txt1["font_size"] - txt2["font_size"]) / max(txt1["font_size"], txt2["font_size"]))
+                if font_size_norm_diff > self.max_relative_font_size_diff:
+                    return 0
+                font_size_diff_similarity_modifier = 1 - font_size_norm_diff
+
+                # Non matching content types -> non matching section
+                if type(txt1["content"]) is not type(txt2["content"]):
+                    return 0
+
+                # Non matching content -> non matching section
+                cnt1, cnt2 = txt1["content"], txt2["content"]
+                similar = 0
+                if isinstance(cnt1, str):
+                    similar = SequenceMatcher(None, cnt1, cnt2).quick_ratio()
+                elif isinstance(cnt1, pikepdf.Array):
+                    array1 = [str(x) for x in cnt1 if not isinstance(x, int) and not isinstance(x, float)]
+                    array2 = [str(x) for x in cnt2 if not isinstance(x, int) and not isinstance(x, float)]
+                    similar = SequenceMatcher(None, "".join(array1), "".join(array2)).quick_ratio()
+                else:
+                    logger.warning(f"WARNING: Unknown text content type: {type(cnt1)}")
+                    continue  # Dont use in comparison
+
+                texts_similarities.append(similar * font_size_diff_similarity_modifier * location_diff_similarity_modifier)
+
+            total_similarity_score = np.prod(texts_similarities)
+            return total_similarity_score
 
         return 0
 
-    @staticmethod
-    def _get_section_to_sections_similarities(section1: Section, sections: List[Section]) -> List[float]:
+    def _get_section_to_sections_similarities(self, section1: Section, sections: List[Section]) -> List[float]:
         similarities = []
         for section2 in sections:
-            similarities.append(PdfFile._get_section_similarity(section1, section2))
+            if section2.section_group is not None:
+                similarities.append(-1)
+            else:
+                similarities.append(self._get_section_similarity(section1, section2))
         return similarities
 
     def __del__(self):
