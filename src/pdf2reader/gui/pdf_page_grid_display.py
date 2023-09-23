@@ -74,7 +74,9 @@ class PdfPageGridDisplay(tk.Frame):
                         boxes = []
                         for section in self.pdf_file.get_page(page_number).sections:
                             if section.section_group == self._show_sections_only_from_group:
-                                boxes.append(section.get_bounding_box(page_height=float(page.original_crop_area[3])))
+                                box = section.get_bounding_box(page_height=float(page.original_crop_area[3]))
+                                if box:
+                                    boxes.append(box)
                         page_renderer.set_boxes(boxes)
                     else:
                         page_renderer.set_boxes(self.pdf_file.get_boxes(page_number))
