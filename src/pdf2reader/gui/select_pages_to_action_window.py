@@ -1,22 +1,28 @@
 import logging
 import tkinter as tk
-from tkinter import ttk
 from typing import Callable, List
 
 from src.pdf2reader.gui.pdf_page_grid_display import PdfPageGridDisplay
 from src.pdf2reader.gui.tooltip import create_tooltip
-from src.pdf2reader.pdf_file import PdfFile
+from src.pdf2reader.pdf_file import PdfFile, SectionGroup
 
 logger = logging.getLogger(__name__)
 
 
 class SelectPagesToActionWindow:
     def __init__(self, title: str, pdf_file: PdfFile, save_callback: Callable[[List[int]], None],
-                 checkbox_text: str = "", preselected_pages: List[int] = None):
+                 checkbox_text: str = "", preselected_pages: List[int] = None,
+                 enabled_pages: List[int] = None, show_crop: bool = True, custom_crop: List[int] = None,
+                 show_sections: bool = False, show_sections_only_from_group: SectionGroup = None):
         self.pdf_file = pdf_file
         self.checkbox_text = checkbox_text
         self.save_callback = save_callback
         self._preselected_pages = preselected_pages
+        self._enabled_pages = enabled_pages
+        self._show_crop = show_crop
+        self._custom_crop = custom_crop
+        self._show_sections = show_sections
+        self._show_section_only_from_group = show_sections_only_from_group
 
         self.window = tk.Toplevel()
         self.window.grab_set()
@@ -42,7 +48,11 @@ class SelectPagesToActionWindow:
                                      unselect_callback=self._unselect_callback_1_indexed,
                                      save_callback=self._save_callback)
         self.pages_view = PdfPageGridDisplay(self.window, is_pdf_opened=self.is_pdf_opened, pdf_file=self.pdf_file,
-                                             create_page_additional_info=self._create_page_additional_info)
+                                             create_page_additional_info=self._create_page_additional_info,
+                                             show_crop=self._show_crop, custom_crop=self._custom_crop,
+                                             show_sections=self._show_sections,
+                                             show_sections_only_from_group=self._show_section_only_from_group,
+                                             enabled_pages=self._enabled_pages)
 
         self.controls.pack(fill=tk.X, side=tk.TOP, expand=False)
         self.pages_view.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
@@ -63,7 +73,8 @@ class SelectPagesToActionWindow:
             if checkbox:
                 checkbox.select()
             else:
-                invalid_page_indexes.append(page_number)
+                if page_number < 1 or page_number > self.pdf_file.page_count:
+                    invalid_page_indexes.append(page_number)
         if invalid_page_indexes:
             if len(invalid_page_indexes) > 20:
                 invalid_page_indexes = invalid_page_indexes[:20] + ["..."]
@@ -77,7 +88,8 @@ class SelectPagesToActionWindow:
             if checkbox:
                 checkbox.deselect()
             else:
-                invalid_page_indexes.append(page_number)
+                if page_number < 1 or page_number > self.pdf_file.page_count:
+                    invalid_page_indexes.append(page_number)
         if invalid_page_indexes:
             if len(invalid_page_indexes) > 20:
                 invalid_page_indexes = invalid_page_indexes[:20] + ["..."]

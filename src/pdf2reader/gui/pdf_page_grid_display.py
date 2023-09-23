@@ -1,12 +1,12 @@
 import logging
 import tkinter as tk
-from typing import Callable
+from typing import Callable, List
 
 from src.pdf2reader.gui.debouncer import Debouncer
 from src.pdf2reader.gui.page_renderer import PageRenderer
 from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
 from src.pdf2reader.gui.vertical_scrolled_frame import VerticalScrolledFrame
-from src.pdf2reader.pdf_file import PdfPage, PdfFile
+from src.pdf2reader.pdf_file import PdfPage, PdfFile, SectionGroup
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +14,18 @@ logger = logging.getLogger(__name__)
 class PdfPageGridDisplay(tk.Frame):
     def __init__(self, parent: tk.Frame or tk.Tk or tk.Toplevel, is_pdf_opened: tk.BooleanVar, pdf_file: PdfFile = None,
                  create_page_additional_info: Callable[[tk.Widget, PdfPage, int], tk.Widget] = None,
-                 page_click_callback: Callable[[PdfPage, int], None] = None, *args, **kwargs):
+                 page_click_callback: Callable[[PdfPage, int], None] = None, show_crop: bool = True,
+                 custom_crop: List[int] = None, show_sections: bool = False,
+                 show_sections_only_from_group: SectionGroup = None, enabled_pages: List[int] = None,
+                 *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
 
         self._create_page_additional_info = create_page_additional_info
+        self._show_crop = show_crop
+        self._custom_crop = custom_crop
+        self._show_sections_only_from_group = show_sections_only_from_group
+        self._show_sections = show_sections
+        self._enabled_pages = enabled_pages
 
         self.verticalscroll = VerticalScrolledFrame(self)
         self.verticalscroll.pack(fill=tk.BOTH, side=tk.TOP, expand=True)
@@ -38,7 +46,6 @@ class PdfPageGridDisplay(tk.Frame):
         self._resize_debouncer = Debouncer(lambda event: self._pack_pages_to_grid())
         self.bind("<Configure>", self._resize_debouncer.process_event)
 
-
     def _setup_variables(self):
         self.is_pdf_opened.trace("w", lambda *args: self._pdf_opened_change())
 
@@ -53,12 +60,24 @@ class PdfPageGridDisplay(tk.Frame):
                 page_number = page_number
                 page = self.pdf_file.get_page(page_number)
 
-                page_renderer = PageRenderer(self.scrollframe, padx=5, pady=5, create_page_additional_info=self._create_page_additional_info,
+                page_renderer = PageRenderer(self.scrollframe, padx=5, pady=5,
+                                             create_page_additional_info=self._create_page_additional_info,
                                              default_click_callback=(lambda e, page=page, page_number=page_number:
                                                                      self.page_click_callback(page, int(page_number)))
-                                                                if self.page_click_callback else None)
+                                             if self.page_click_callback else None,
+                                             show_crop=self._show_crop, custom_crop=self._custom_crop,
+                                             disabled=page_number not in self._enabled_pages if self._enabled_pages is not None else False)
                 page_renderer.set_page(self.pdf_file.get_page(page_number), page_number)
-                page_renderer.set_boxes(self.pdf_file.get_boxes(page_number))
+
+                if self._show_sections:
+                    if self._show_sections_only_from_group:
+                        boxes = []
+                        for section in self.pdf_file.get_page(page_number).sections:
+                            if section.section_group == self._show_sections_only_from_group:
+                                boxes.append(section.get_bounding_box(page_height=float(page.original_crop_area[3])))
+                        page_renderer.set_boxes(boxes)
+                    else:
+                        page_renderer.set_boxes(self.pdf_file.get_boxes(page_number))
 
                 self._page_renderers.append(page_renderer)
                 progress_bar.update_progress(page_number)
@@ -76,7 +95,6 @@ class PdfPageGridDisplay(tk.Frame):
             else:
                 column += 1
                 max_columns = max(max_columns, column)
-
 
         row = 0
         column = 0

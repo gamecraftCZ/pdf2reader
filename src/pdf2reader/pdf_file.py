@@ -22,6 +22,7 @@ class Section:
     content: List[pikepdf.ContentStreamInstruction]
     location: List[float] or None
     additional: dict or None
+    page_number: int or None
 
     # Section output options
     keep_in_output: bool
@@ -31,12 +32,13 @@ class Section:
         TEXT = "text"
         OTHER = "other"
 
-    def __init__(self, typ: SectionType, content: List[pikepdf.ContentStreamInstruction],
+    def __init__(self, typ: SectionType, content: List[pikepdf.ContentStreamInstruction], page_number: int = None,
                  location: List[float] = None, additional: dict = None, keep_in_output: bool = True):
         self.typ = typ
         self.content = content
         self.location = location
         self.additional = additional
+        self.page_number = page_number
 
         self.keep_in_output = keep_in_output
         self.section_group = None
@@ -51,7 +53,7 @@ class Section:
                        self.location[0] + self.additional["font_size"] * 1.2 + 5,
                        page_height - self.location[1] - self.additional["font_size"] * 1.2 + 5,
                        color="lightgreen" if self.keep_in_output else "red",
-                       on_click=lambda: print("Clicked on text box!"))
+                       on_click=lambda *args, **kwargs: None)
 
     def get_content_as_string(self):
         return "".join([str(x) for x in self.content])
@@ -68,14 +70,14 @@ class SectionGroup:
 
 
 class PdfPage:
-    def __init__(self, page: pikepdf.Page):
+    def __init__(self, page: pikepdf.Page, page_number: int = -1):
         self._page = page
         self._parsed_stream = pikepdf.parse_content_stream(self._page)
 
         self._original_content = pikepdf.unparse_content_stream(self._parsed_stream)
         self._original_rendered = self.render_page_as_image(self._page)
 
-        self.sections = self._parse_sections(pikepdf.parse_content_stream(self._page))
+        self.sections = self._parse_sections(pikepdf.parse_content_stream(self._page), page_number)
 
         self.original_crop_area = [self._page.mediabox[0], self._page.mediabox[1], self._page.mediabox[2],
                                    self._page.mediabox[3]]
@@ -84,14 +86,14 @@ class PdfPage:
 
     @property
     def original_height(self) -> int:
-        return int(self._page.mediabox[3] - self._page.mediabox[1])
+        return int(self.original_crop_area[3] - self.original_crop_area[1])
 
     @property
     def original_width(self) -> int:
-        return int(self._page.mediabox[2] - self._page.mediabox[0])
+        return int(self.original_crop_area[2] - self.original_crop_area[0])
 
     @staticmethod
-    def _parse_sections(parsed_stream: List[pikepdf.ContentStreamInstruction]):
+    def _parse_sections(parsed_stream: List[pikepdf.ContentStreamInstruction], page_number: int = None) -> List[Section]:
         sections = []
 
         current_section_type = Section.SectionType.OTHER
@@ -106,7 +108,7 @@ class PdfPage:
         for instruction in parsed_stream:
             if instruction.operator == pikepdf.Operator("BT"):  # Begin text section
                 if current_section_content:
-                    sections.append(Section(current_section_type, current_section_content))
+                    sections.append(Section(current_section_type, current_section_content, page_number))
 
                 if current_section_type == Section.SectionType.TEXT:
                     logger.warning("WARNING: text_section already started!")
@@ -124,7 +126,7 @@ class PdfPage:
                     logger.warning("WARNING: text_section not started, but now ending!")
 
                 if text_draw_location:
-                    sections.append(Section(Section.SectionType.TEXT, current_section_content,
+                    sections.append(Section(Section.SectionType.TEXT, current_section_content, page_number,
                                             text_draw_location,
                                             {"font": current_font[0], "font_size": current_font[1]}))
                 text_draw_location = None
@@ -172,7 +174,7 @@ class PdfPage:
                 current_section_content.append(instruction)
 
         if current_section_content:
-            sections.append(Section(current_section_type, current_section_content))
+            sections.append(Section(current_section_type, current_section_content, page_number))
 
         return sections
 
@@ -180,7 +182,8 @@ class PdfPage:
     def _join_sections(sections: List[Section]):
         instructions = []
         for s in sections:
-            instructions.extend(s.content)
+            if s.keep_in_output:
+                instructions.extend(s.content)
         return instructions
 
     def get_original_pike_page(self) -> pikepdf.Page:
@@ -203,7 +206,7 @@ class PdfPage:
         boxes = []
         for section in self.sections:
             if section.typ == Section.SectionType.TEXT:
-                box = section.get_bounding_box(page_height=float(self._page.mediabox[3]))
+                box = section.get_bounding_box(page_height=float(self.original_crop_area[3]))
                 if box:
                     boxes.append(box)
         return boxes
@@ -223,7 +226,7 @@ class PdfPage:
         img = Image.open(io.BytesIO(imgdata))
         return img
 
-    def get_original_rendered_image(self):
+    def get_original_rendered_image(self) -> Image:
         return self._original_rendered
 
     def get_edited_rendered_image(self):
@@ -246,8 +249,8 @@ class PdfFile:
             self.progress_bar_window = ProgressBarWindow("Loading PDF", f"Loading PDF...", 0, len(self.pdf.pages))
 
         self.pages_parsed = []
-        for page in self.pdf.pages:
-            self.pages_parsed.append(PdfPage(page))
+        for page_number, page in enumerate(self.pdf.pages):
+            self.pages_parsed.append(PdfPage(page, page_number))
             if progressbar:
                 self.progress_bar_window.update_progress(len(self.pages_parsed))
                 self.progress_bar_window.update_message(
@@ -294,18 +297,19 @@ class PdfFile:
 
                 # Do the matching
                 for next_page_index in range(max(page_index + 1, section.section_group.last_matched_page_number + 1),
-                                             min(page_index + self.match_ahead_pages + 1, self.page_count - 1)):
+                                             min(page_index + self.match_ahead_pages + 1, self.page_count)):
                     section.section_group.last_matched_page_number = max(section.section_group.last_matched_page_number,
                                                                          next_page_index)
                     next_page = self.pages_parsed[next_page_index]
                     similarities = PdfFile._get_section_to_sections_similarities(section.section_group.master_section,
                                                                                  next_page.sections)
-                    most_similar = np.argmax(similarities)
-                    if similarities[most_similar] > self.match_threshold:
-                        next_page_section = next_page.sections[most_similar]
-                        logger.debug(f"Found similar section with similarity {similarities[most_similar]}")
-                        section.section_group.sections.append(next_page_section)
-                        next_page_section.section_group = section.section_group
+                    if similarities:
+                        most_similar = np.argmax(similarities)
+                        if similarities[most_similar] > self.match_threshold:
+                            next_page_section = next_page.sections[most_similar]
+                            logger.debug(f"Found similar section with similarity {similarities[most_similar]}")
+                            section.section_group.sections.append(next_page_section)
+                            next_page_section.section_group = section.section_group
 
     def _filter_sections_groups(self):
         logger.debug(

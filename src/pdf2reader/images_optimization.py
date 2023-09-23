@@ -714,9 +714,9 @@ def optimize_pdf_images(pike_pdf: pikepdf.Pdf, images: Tuple[List[Xref], List[Xr
 
     if options.should_resize:
         if not options.target_height:
-            options.target_height = pike_pdf.pages[0].mediabox[3] - pike_pdf.pages[0].mediabox[1]
+            options.target_height = pike_pdf.pages[0].original_crop_area[3] - pike_pdf.pages[0].original_crop_area[1]
         if not options.target_width:
-            options.target_width = pike_pdf.pages[0].mediabox[2] - pike_pdf.pages[0].mediabox[0]
+            options.target_width = pike_pdf.pages[0].original_crop_area[2] - pike_pdf.pages[0].original_crop_area[0]
 
     options.jobs = 1
 

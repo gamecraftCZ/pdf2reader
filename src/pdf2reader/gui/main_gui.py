@@ -50,7 +50,7 @@ class MainGUI(tk.Frame):
         self.edit_menu.add_command(label="Optimize images", command=self._optimize_images_button, state=tk.DISABLED)
 
     def _create_content(self):
-        self.pdf_grid_display = PdfPageGridDisplay(self, self.is_pdf_opened,
+        self.pdf_grid_display = PdfPageGridDisplay(self, self.is_pdf_opened, show_sections=True,
                                                    page_click_callback=self._open_page_edit_window,
                                                    create_page_additional_info=lambda master, page,
                                                                                       page_number: tk.Label(master,
