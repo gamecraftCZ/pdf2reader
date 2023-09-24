@@ -5,9 +5,9 @@ from typing import List, Callable
 from PIL import ImageTk
 from PIL import Image
 
-from src.pdf2reader.data_structures import Box
-from src.pdf2reader.gui.crop_selector import CropSelector
-from src.pdf2reader.pdf_file import PdfPage, SectionGroup
+from pdf2reader.data_structures import Box
+from pdf2reader.gui.crop_selector import CropSelector
+from pdf2reader.pdf_file import PdfPage
 
 logger = logging.getLogger(__name__)
 

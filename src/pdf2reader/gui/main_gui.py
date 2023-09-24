@@ -4,10 +4,10 @@ from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
 
-from src.pdf2reader.gui.image_optimization_window import ImageOptimizationWindow
-from src.pdf2reader.gui.page_edit_window import PageEditWindow
-from src.pdf2reader.gui.pdf_page_grid_display import PdfPageGridDisplay
-from src.pdf2reader.pdf_file import PdfFile, PdfPage
+from pdf2reader.gui.image_optimization_window import ImageOptimizationWindow
+from pdf2reader.gui.page_edit_window import PageEditWindow
+from pdf2reader.gui.pdf_page_grid_display import PdfPageGridDisplay
+from pdf2reader.pdf_file import PdfFile, PdfPage
 
 logger = logging.getLogger(__name__)
 

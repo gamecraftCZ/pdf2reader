@@ -1,8 +1,8 @@
 import logging
 import tkinter as tk
 
-from src.pdf2reader.gui.page_renderer import PageRenderer
-from src.pdf2reader.pdf_file import PdfFile
+from pdf2reader.gui.page_renderer import PageRenderer
+from pdf2reader.pdf_file import PdfFile
 
 logger = logging.getLogger(__name__)
 

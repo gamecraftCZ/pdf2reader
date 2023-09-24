@@ -2,10 +2,10 @@ import logging
 import tkinter as tk
 from typing import Callable, List
 
-from src.pdf2reader.data_structures import Box
-from src.pdf2reader.gui.page_renderer import PageRenderer
-from src.pdf2reader.gui.select_pages_to_action_window import SelectPagesToActionWindow
-from src.pdf2reader.pdf_file import PdfFile, Section
+from pdf2reader.data_structures import Box
+from pdf2reader.gui.page_renderer import PageRenderer
+from pdf2reader.gui.select_pages_to_action_window import SelectPagesToActionWindow
+from pdf2reader.pdf_file import PdfFile, Section
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,10 @@ class PageEditWindow:
         self.reload_all_pages_callback = reload_all_pages_callback
 
         self.window = tk.Toplevel()
-        self.window.grab_set()
+        try:
+            self.window.grab_set()  # Fails on some platforms (works on Windows)
+        except:
+            pass
         self.window.title("Edit Page")
 
         self._setup_variables(is_pdf_opened=True, current_page=page_number, page_count=self.pdf_file.page_count)
@@ -127,7 +130,10 @@ class PageEditWindow:
         self.close()
 
     def close(self):
-        self.window.grab_release()
+        try:
+            self.window.grab_release()
+        except:
+            pass
         self.window.destroy()
 
 

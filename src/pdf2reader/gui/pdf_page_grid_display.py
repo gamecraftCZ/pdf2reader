@@ -2,11 +2,11 @@ import logging
 import tkinter as tk
 from typing import Callable, List
 
-from src.pdf2reader.gui.debouncer import Debouncer
-from src.pdf2reader.gui.page_renderer import PageRenderer
-from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
-from src.pdf2reader.gui.vertical_scrolled_frame import VerticalScrolledFrame
-from src.pdf2reader.pdf_file import PdfPage, PdfFile, SectionGroup
+from pdf2reader.gui.debouncer import Debouncer
+from pdf2reader.gui.page_renderer import PageRenderer
+from pdf2reader.gui.progress_bar_window import ProgressBarWindow
+from pdf2reader.gui.vertical_scrolled_frame import VerticalScrolledFrame
+from pdf2reader.pdf_file import PdfPage, PdfFile, SectionGroup
 
 logger = logging.getLogger(__name__)
 

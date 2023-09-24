@@ -10,8 +10,8 @@ import numpy as np
 import pikepdf
 from PIL import Image
 
-from src.pdf2reader.data_structures import Box
-from src.pdf2reader.images_optimization import optimize_pdf_images, OptimizationOptions, extract_pdf_images
+from pdf2reader.data_structures import Box
+from pdf2reader.images_optimization import optimize_pdf_images, OptimizationOptions, extract_pdf_images
 
 logger = logging.getLogger(__name__)
 
@@ -249,14 +249,14 @@ class PdfFile:
         # Matching params
         self.match_ahead_pages = 8
         self.match_threshold = 0.98
-        self.min_group_size = 5
+        self.min_group_size = 5  # TODO Why filter, when the groups are tied to the section objects?
 
         self.max_relative_font_size_diff = 0.1
         self.max_absolute_location_diff = 20
 
 
         if progressbar:
-            from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
+            from .gui.progress_bar_window import ProgressBarWindow
             self.progress_bar_window = ProgressBarWindow("Loading PDF", f"Loading PDF...", 0, len(self.pdf.pages))
 
         self.pages_parsed = []
@@ -272,7 +272,7 @@ class PdfFile:
         #     self.progress_bar_window.update_mode_infinite(True)
         self.sections_groups = []
         self._match_page_sections(progressbar=progressbar)
-        self._filter_sections_groups()
+        self._filter_sections_groups()  # TODO Why filter, when the groups are tied to the section objects?
 
         # Extract images for further optimization
         if progressbar:
@@ -419,7 +419,7 @@ class PdfFile:
 
     def save(self, path: str, progressbar: bool = False):
         if progressbar:
-            from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
+            from .gui.progress_bar_window import ProgressBarWindow
             progress_bar_window = ProgressBarWindow("Saving PDF", f"Saving PDF...", 0, len(self.pages_parsed))
 
         for i, page in enumerate(self.pages_parsed):
@@ -438,7 +438,7 @@ class PdfFile:
     def optimize_images(self, images_quality: int = 30, should_resize_images: bool = True,
                         should_remove_images: bool = False, progressbar: bool = False):
         if progressbar:
-            from src.pdf2reader.gui.progress_bar_window import ProgressBarWindow
+            from .gui.progress_bar_window import ProgressBarWindow
             progress_bar_window = ProgressBarWindow("Optimizing images", f"Optimizing images...",
                                                     0, len(self.pages_parsed), infinite_mode=True)
 

@@ -7,7 +7,11 @@ class ProgressBarWindow:
     def __init__(self, title: str, message: str, current_value: int, max_value: int,
                  on_cancel_callback: Callable = None, infinite_mode: bool = False):
         self.window = tk.Toplevel()
-        self.window.grab_set()
+
+        try:
+            self.window.grab_set()  # Fails on some platforms (works on Windows)
+        except:
+            pass
 
         self.window.title(title)
         self.window.geometry("400x100")
@@ -51,5 +55,8 @@ class ProgressBarWindow:
         self.close()
 
     def close(self):
-        self.window.grab_release()
+        try:
+            self.window.grab_release()
+        except:
+            pass
         self.window.destroy()

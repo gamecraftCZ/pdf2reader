@@ -2,9 +2,9 @@ import logging
 import tkinter as tk
 from typing import Callable, List
 
-from src.pdf2reader.gui.pdf_page_grid_display import PdfPageGridDisplay
-from src.pdf2reader.gui.tooltip import create_tooltip
-from src.pdf2reader.pdf_file import PdfFile, SectionGroup
+from pdf2reader.gui.pdf_page_grid_display import PdfPageGridDisplay
+from pdf2reader.gui.tooltip import create_tooltip
+from pdf2reader.pdf_file import PdfFile, SectionGroup
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,10 @@ class SelectPagesToActionWindow:
         self._show_section_only_from_group = show_sections_only_from_group
 
         self.window = tk.Toplevel()
-        self.window.grab_set()
+        try:
+            self.window.grab_set()  # Fails on some platforms (works on Windows)
+        except:
+            pass
         self.window.title(title)
         self.window.geometry("900x600")
         self.window.protocol("WM_DELETE_WINDOW", self._close_callback)
@@ -122,7 +125,10 @@ class SelectPagesToActionWindow:
         self.close()
 
     def close(self):
-        self.window.grab_release()
+        try:
+            self.window.grab_release()
+        except:
+            pass
         self.window.destroy()
 
 

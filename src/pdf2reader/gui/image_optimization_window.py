@@ -8,7 +8,10 @@ class ImageOptimizationWindow:
         self._optimize_callback = optimize_callback
 
         self.window = tk.Toplevel()
-        self.window.grab_set()
+        try:
+            self.window.grab_set()  # Fails on some platforms (works on Windows)
+        except:
+            pass
         self.window.title("Optimize images")
         self.window.geometry("400x220")
 
@@ -60,5 +63,8 @@ class ImageOptimizationWindow:
         self.close()
 
     def close(self):
-        self.window.grab_release()
+        try:
+            self.window.grab_release()
+        except:
+            pass
         self.window.destroy()
