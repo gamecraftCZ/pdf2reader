@@ -172,7 +172,8 @@ class PdfPage:
             elif instruction.operator == pikepdf.Operator("cm"):  # Transformation matrix command
                 current_section_content.append(instruction)
                 ops = instruction.operands
-                current_transformation_matrix @= np.array([[float(ops[0]), float(ops[1]), .0],
+                current_transformation_matrix = current_transformation_matrix \
+                                                @ np.array([[float(ops[0]), float(ops[1]), .0],
                                                            [float(ops[2]), float(ops[3]), .0],
                                                            [float(ops[4]), float(ops[5]), 1.]], dtype=np.float64)
 
