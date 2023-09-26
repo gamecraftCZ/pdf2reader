@@ -29,3 +29,6 @@ Small app to convert PDFs to be more readable on ebook readers.
 ### Installation
 
 - Run `pip install git+https://github.com/gamecraftCZ/pdf2reader.git`
+
+### Development
+[Dev documentation](DEV_DOCS.md)
