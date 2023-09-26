@@ -250,7 +250,6 @@ class PdfFile:
         # Matching params
         self.match_ahead_pages = 8
         self.match_threshold = 0.98
-        self.min_group_size = 5  # TODO Why filter, when the groups are tied to the section objects?
 
         self.max_relative_font_size_diff = 0.1
         self.max_absolute_location_diff = 20
@@ -273,7 +272,6 @@ class PdfFile:
         #     self.progress_bar_window.update_mode_infinite(True)
         self.sections_groups = []
         self._match_page_sections(progressbar=progressbar)
-        self._filter_sections_groups()  # TODO Why filter, when the groups are tied to the section objects?
 
         # Extract images for further optimization
         if progressbar:
