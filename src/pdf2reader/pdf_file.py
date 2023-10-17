@@ -112,7 +112,8 @@ class PdfPage:
         current_section_content = []
 
         transform_matrixes = [np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)]
-        get_combined_transform_matrix = lambda: np.linalg.multi_dot(transform_matrixes)
+        def get_combined_transform_matrix():
+            return np.linalg.multi_dot(transform_matrixes) if len(transform_matrixes) >= 2 else transform_matrixes[0]
         current_text_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
         current_font = ("default_font", 11)  # Some random default value  (name, size)
         text_draw_relative_location = [0, 0]
