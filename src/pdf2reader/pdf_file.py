@@ -31,6 +31,7 @@ class Section:
     class SectionType(Enum):
         TEXT = "text"
         OTHER = "other"
+        OBJECT = "object"
 
     def __init__(self, typ: SectionType, content: List[pikepdf.ContentStreamInstruction], page_number: int = None,
                  location: List[float] = None, additional: dict = None, keep_in_output: bool = True):
@@ -55,11 +56,22 @@ class Section:
                        color="lightgreen" if self.keep_in_output else "red",
                        on_click=lambda *args, **kwargs: None)
 
+        elif self.typ == Section.SectionType.OBJECT:
+            if self.location is None:
+                logger.warning("WARNING: Object section has no location!")
+                return None
+            return Box(self.location[0] - 20, page_height - self.location[1] - 20,
+                       self.location[0] + 30, page_height - self.location[1] + 30,
+                       color="lightgreen" if self.keep_in_output else "red",
+                       on_click=lambda *args, **kwargs: None)
+
+
     def get_content_as_string(self):
         return "".join([str(x) for x in self.content])
 
     def __repr__(self):
-        return f"Section(type={self.typ}, len={len(self.content)})"
+        return (f"Section(type={self.typ}, len={len(self.content)}, page={self.page_number}, "
+                f"keep_in_output={self.keep_in_output}, location={self.location}, additional={self.additional})")
 
 
 class SectionGroup:
@@ -77,7 +89,7 @@ class PdfPage:
         self._original_content = pikepdf.unparse_content_stream(self._parsed_stream)
         self._original_rendered = self.render_page_as_image(self._page)
 
-        self.sections = self._parse_sections(pikepdf.parse_content_stream(self._page), page_number)
+        self.sections = self._parse_sections(pikepdf.parse_content_stream(self._page), page_number, self._page.resources)
 
         self.original_crop_area = [self._page.mediabox[0], self._page.mediabox[1], self._page.mediabox[2],
                                    self._page.mediabox[3]]
@@ -93,13 +105,14 @@ class PdfPage:
         return int(self.original_crop_area[2] - self.original_crop_area[0])
 
     @staticmethod
-    def _parse_sections(parsed_stream: List[pikepdf.ContentStreamInstruction], page_number: int = None) -> List[Section]:
+    def _parse_sections(parsed_stream: List[pikepdf.ContentStreamInstruction], page_number: int = None, page_resources: pikepdf.Dictionary = None) -> List[Section]:
         sections = []
 
         current_section_type = Section.SectionType.OTHER
         current_section_content = []
 
-        current_transformation_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
+        transform_matrixes = [np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)]
+        get_combined_transform_matrix = lambda: np.linalg.multi_dot(transform_matrixes)
         current_text_matrix = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64)
         current_font = ("default_font", 11)  # Some random default value  (name, size)
         text_draw_relative_location = [0, 0]
@@ -149,7 +162,7 @@ class PdfPage:
                   or instruction.operator == pikepdf.Operator("TJ")):  # Draw text
                 # For now, we just save the text start position and draw the box there
                 current_section_content.append(instruction)
-                loc = (current_transformation_matrix @ current_text_matrix
+                loc = (get_combined_transform_matrix() @ current_text_matrix
                        @ np.array([[1, 0, 0], [0, 1, 0],
                                    [text_draw_relative_location[0],
                                     text_draw_relative_location[1],
@@ -168,14 +181,54 @@ class PdfPage:
                                                 [float(ops[2]), float(ops[3]), .0],
                                                 [float(ops[4]), float(ops[5]), 1.]], dtype=np.float64)
 
-
             elif instruction.operator == pikepdf.Operator("cm"):  # Transformation matrix command
                 current_section_content.append(instruction)
                 ops = instruction.operands
-                current_transformation_matrix = current_transformation_matrix \
+                transform_matrixes[-1] = transform_matrixes[-1] \
                                                 @ np.array([[float(ops[0]), float(ops[1]), .0],
                                                            [float(ops[2]), float(ops[3]), .0],
                                                            [float(ops[4]), float(ops[5]), 1.]], dtype=np.float64)
+
+            elif instruction.operator == pikepdf.Operator("Do"):  # Draw image or other object
+                # End current section
+                if text_draw_location:
+                    sections.append(Section(Section.SectionType.TEXT, current_section_content, page_number,
+                                            text_draw_location,
+                                            {"font": current_font[0], "font_size": current_font[1], "text": text}))
+                    text_draw_location = None
+                else:
+                    sections.append(Section(Section.SectionType.OTHER, current_section_content, page_number))
+
+                # Insert object section
+                loc = np.eye(3, dtype=np.float64)
+                loc = get_combined_transform_matrix() @ loc
+                if current_section_type == Section.SectionType.TEXT:
+                    loc = current_text_matrix @ loc
+
+                pdf_obj = page_resources.XObject[instruction.operands[0]]
+                pdf_obj_xref = pdf_obj.objgen[0]
+                sections.append(Section(Section.SectionType.OBJECT, [instruction], page_number,
+                                        [loc[2][0], loc[2][1]], additional={"xref": pdf_obj_xref}))
+
+                # Keep current_section_type and other variables and start continuation of section
+                current_section_content = []
+
+            elif instruction.operator == pikepdf.Operator("q"):  # Push transformation matrix
+                current_section_content.append(instruction)
+                transform_matrixes.append(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64))
+
+            elif instruction.operator == pikepdf.Operator("Q"):  # Pop transformation matrix
+                current_section_content.append(instruction)
+                transform_matrixes.pop()
+
+            elif (instruction.operator == pikepdf.Operator("BDC")
+                  or instruction.operator == pikepdf.Operator("BMC")):  # Marked section start
+                current_section_content.append(instruction)
+                transform_matrixes.append(np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]], dtype=np.float64))
+
+            elif instruction.operator == pikepdf.Operator("EMC"):  # Marked section end
+                current_section_content.append(instruction)
+                transform_matrixes.pop()
 
             else:
                 current_section_content.append(instruction)
@@ -212,7 +265,7 @@ class PdfPage:
     def get_boxes(self) -> List[Box]:
         boxes = []
         for section in self.sections:
-            if section.typ == Section.SectionType.TEXT:
+            if section.typ != Section.SectionType.OTHER:
                 box = section.get_bounding_box(page_height=float(self.original_crop_area[3]))
                 if box:
                     boxes.append(box)
@@ -293,8 +346,8 @@ class PdfFile:
                     f"Matching similar sections... page {page_index + 1}/{len(self.pages_parsed)}")
             page = self.pages_parsed[page_index]
             for section in page.sections:
-                # Match only text sections
-                if section.typ != Section.SectionType.TEXT:
+                # Match only text and object sections
+                if section.typ == Section.SectionType.OTHER:
                     continue
 
                 # Create new sections group if this section is not part of any group
@@ -330,11 +383,14 @@ class PdfFile:
         if section1.typ != section2.typ:
             return 0
 
+        # Non matching location -> non matching section
         location_x_diff = abs(section1.location[0] - section1.location[0])
         location_y_diff = abs(section1.location[1] - section1.location[1])
         if (location_x_diff > self.max_absolute_location_diff
                 or location_y_diff > self.max_absolute_location_diff):
             return 0
+        global_location_diff_similarity_modifier = 1 - (
+                    (location_x_diff + location_y_diff) / (2 * self.max_absolute_location_diff))
 
         if section1.typ == Section.SectionType.TEXT == section2.typ:
             # section.additional["text"] = {"content", "location", "font", "font_size"}[]
@@ -368,20 +424,31 @@ class PdfFile:
                 # Non matching content -> non matching section
                 cnt1, cnt2 = txt1["content"], txt2["content"]
                 similar = 0
-                if isinstance(cnt1, str):
+                if isinstance(cnt1, str) and isinstance(cnt2, str):
                     similar = SequenceMatcher(None, cnt1, cnt2).quick_ratio()
-                elif isinstance(cnt1, pikepdf.Array):
+                elif isinstance(cnt1, pikepdf.Array) and isinstance(cnt2, pikepdf.Array):
                     array1 = [str(x) for x in cnt1 if not isinstance(x, int) and not isinstance(x, float)]
                     array2 = [str(x) for x in cnt2 if not isinstance(x, int) and not isinstance(x, float)]
                     similar = SequenceMatcher(None, "".join(array1), "".join(array2)).quick_ratio()
                 else:
-                    logger.warning(f"WARNING: Unknown text content type: {type(cnt1)}")
+                    logger.warning(f"WARNING: Unknown text content type: '{type(cnt1)}' or '{type(cnt2)}'")
                     continue  # Dont use in comparison
 
                 texts_similarities.append(similar * font_size_diff_similarity_modifier * location_diff_similarity_modifier)
 
             total_similarity_score = np.prod(texts_similarities)
             return total_similarity_score
+
+        if section1.typ == Section.SectionType.OBJECT == section2.typ:
+            # Can not compare local object easily
+            if not section1.additional["xref"] or not section2.additional["xref"]:
+                return 0
+
+            # Check if it is the same object by xref
+            if section1.additional["xref"] != section2.additional["xref"]:
+                return 0
+
+            return global_location_diff_similarity_modifier
 
         return 0
 
