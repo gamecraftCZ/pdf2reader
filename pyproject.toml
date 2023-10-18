@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "pdf2reader"
-version = "0.1.0"
+version = "0.2.0"
 description = "A small app to convert PDFs to be more readable on ebook readers."
 authors = ["Patrik Vacal <patrik+pdf2reader@vacal.dev>"]
 readme = "README.md"
