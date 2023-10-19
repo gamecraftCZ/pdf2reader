@@ -44,15 +44,21 @@ class Section:
         self.keep_in_output = keep_in_output
         self.section_group = None
 
-    def get_bounding_box(self, page_height: float) -> Box or None:
+
+    def get_bounding_box(self, page_height: float, cap_area: List[int] = None) -> Box or None:
         if self.typ == Section.SectionType.TEXT:
             if self.location is None:
                 logger.warning("WARNING: Text section has no location!")
                 return None
-
-            return Box(self.location[0] - 5, page_height - self.location[1],
-                       self.location[0] + self.additional["font_size"] * 1.2 + 5,
-                       page_height - self.location[1] - self.additional["font_size"] * 1.2 + 5,
+            loc = [self.location[0] - 5,
+                    page_height - self.location[1],
+                    self.location[0] + self.additional["font_size"] * 1.2 + 5,
+                    page_height - self.location[1] - self.additional["font_size"] * 1.2 + 5]
+            loc[0] = min(max(loc[0], 0), cap_area[2] - 30)  # x1
+            loc[1] = min(max(loc[1], 0), cap_area[3] - 15)  # y1
+            loc[2] = max(min(loc[2], cap_area[2]), 15)      # x2
+            loc[3] = max(min(loc[3], cap_area[3]), 20)      # y2
+            return Box(*loc,
                        color="lightgreen" if self.keep_in_output else "red",
                        on_click=lambda *args, **kwargs: None)
 
@@ -60,8 +66,13 @@ class Section:
             if self.location is None:
                 logger.warning("WARNING: Object section has no location!")
                 return None
-            return Box(self.location[0] - 20, page_height - self.location[1] - 20,
-                       self.location[0] + 30, page_height - self.location[1] + 30,
+            loc = [self.location[0] - 20, page_height - self.location[1] - 20,
+                       self.location[0] + 30, page_height - self.location[1] + 30]
+            loc[0] = min(max(loc[0], 0), cap_area[2] - 20)  # x1
+            loc[1] = min(max(loc[1], 0), cap_area[3] - 30)  # y1
+            loc[2] = max(min(loc[2], cap_area[2]), 20)      # x2
+            loc[3] = max(min(loc[3], cap_area[3]), 30)      # y2
+            return Box(*loc,
                        color="lightgreen" if self.keep_in_output else "red",
                        on_click=lambda *args, **kwargs: None)
 
@@ -91,8 +102,8 @@ class PdfPage:
 
         self.sections = self._parse_sections(pikepdf.parse_content_stream(self._page), page_number, self._page.resources)
 
-        self.original_crop_area = [self._page.mediabox[0], self._page.mediabox[1], self._page.mediabox[2],
-                                   self._page.mediabox[3]]
+        self.original_crop_area: List[float] = [float(self._page.mediabox[0]), float(self._page.mediabox[1]),
+                                                float(self._page.mediabox[2]), float(self._page.mediabox[3])]
 
         self.crop_area = None
 
@@ -267,7 +278,8 @@ class PdfPage:
         boxes = []
         for section in self.sections:
             if section.typ != Section.SectionType.OTHER:
-                box = section.get_bounding_box(page_height=float(self.original_crop_area[3]))
+                box = section.get_bounding_box(page_height=float(self.original_crop_area[3]),
+                                               cap_area=self.original_crop_area)
                 if box:
                     boxes.append(box)
         return boxes

@@ -77,7 +77,8 @@ class PageEditWindow:
         boxes = []
         page = self.pdf_file.get_page(self.current_page.get())
         for section in page.sections:
-            box: Box = section.get_bounding_box(page_height=float(page.original_crop_area[3]))
+            box: Box = section.get_bounding_box(page_height=float(page.original_crop_area[3]),
+                                                cap_area=page.original_crop_area)
             if not box:
                 continue
             box.on_click = lambda click_loc, section=section: self._box_clicked_callback(click_loc, section)
