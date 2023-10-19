@@ -4,6 +4,8 @@ from pathlib import Path
 from threading import Thread
 from tkinter import filedialog
 
+import pikepdf
+
 from pdf2reader.gui.image_optimization_window import ImageOptimizationWindow
 from pdf2reader.gui.page_edit_window import PageEditWindow
 from pdf2reader.gui.pdf_page_grid_display import PdfPageGridDisplay
@@ -74,12 +76,12 @@ class MainGUI(tk.Frame):
 
         try:
             if self.pdf_file is not None:  # To free up memory
-                del self.pdf_file
+                 self.pdf_file = None
             self.is_pdf_opened.set(False)
 
             self.current_page.set(0)
 
-            self.pdf_file = PdfFile.open(path, progressbar=True)
+            self.pdf_file = PdfFile.open(path, progressbar=True, ask_password=True)
             self.page_count.set(self.pdf_file.page_count)
             self.is_pdf_opened.set(True)
             self.opened_pdf_name.set(Path(path).name)
@@ -92,6 +94,10 @@ class MainGUI(tk.Frame):
 
             if tk.messagebox.askyesno("Image optimization", "Optimize images in PDF file?"):
                 self._optimize_images_button()
+
+        except pikepdf.PasswordError:
+            logger.warning("Wrong password for pdf file")
+            tk.messagebox.showerror("Wrong password", f"Wrong password for pdf file '{path}'")
 
         except Exception as e:
             logger.exception(f"Failed to open pdf file: {path}")

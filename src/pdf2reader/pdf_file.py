@@ -466,8 +466,23 @@ class PdfFile:
         self.temp_dir.cleanup()
 
     @staticmethod
-    def open(path: str, progressbar: bool = False) -> "PdfFile":
-        pdf = pikepdf.open(path)
+    def open(path: str, progressbar: bool = False, password: str = None, ask_password: bool = False) -> "PdfFile":
+        try:
+            pdf = pikepdf.open(path, password=password or "")
+        except pikepdf.PasswordError as e:
+            if ask_password:
+                import tkinter as tk
+                import tkinter.simpledialog
+                r = tk.Tk()
+                r.withdraw()
+                passwd = tkinter.simpledialog.askstring("PDF password", "PDF password: ", show='*', parent=r)
+                r.destroy()
+                if passwd == password:
+                    raise e
+                pdf = pikepdf.open(path, password=passwd or "")  # Can also raise PasswordError
+            else:
+                raise e
+
         pdf_file = PdfFile(pdf, path, progressbar=progressbar)
         return pdf_file
 
